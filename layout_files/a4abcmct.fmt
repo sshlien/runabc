@@ -1,0 +1,63 @@
+  barsperstaff  0
+  botmargin     1.00cm
+  composerfont  Times-Italic 11.0
+% Sirve para numeros de compas
+  composerspace 0.20cm
+  continueall   yes
+  encoding      ASCII
+  exprabove     no
+  exprbelow     no
+  footer        Arreglo: Luis Pablo Gasparotto - luispagasparotto@yahoo.com
+  freegchord    no
+  flatbeams     no
+  gchordfont    Helvetica 13.0
+  graceslurs    yes
+  indent        0.00cm
+  infofont      Times-Italic 11.0
+  infoline      no
+  infospace     0.00cm
+  landscape     no
+  leftmargin    1.78cm
+  lineskipfac   1.10
+  maxshrink     0.65
+  measurebox    yes
+  measurefirst  1
+  measurenb     0
+  musiconly     no
+  musicspace    0.20cm
+  oneperpage    no
+  pageheight    27.94cm
+  pagewidth     21.59cm
+  parskipfac    0.40
+  partsfont     Times-Roman 12.0
+  partsspace    0.30cm
+  rightmargin   1.78cm
+  scale         0.9
+  squarebreve   no
+%  staffsep      1.50cm
+  staffsep      40
+  staffwidth    18.03cm
+  stretchlast   no
+  stretchstaff  yes
+  strictness    0.50
+  subtitlefont  Times-Roman 12.0
+  subtitlespace 0.10cm
+  sysstaffsep   1.00cm
+  tempofont     Times-Bold 12.0
+  textfont      Times-Roman 8.0
+% Sirve tambien para el pie de pagina
+  textspace     0.50cm
+  titlecaps     no
+  titlefont     Helvetica-Bold 16.0
+  titleleft     yes
+  titlespace    0.20cm
+  topmargin     0.30cm
+  topspace      0.30cm
+  vocalabove    no
+  vocalfont     Times-Bold 12.0
+  vocalspace    0.90cm
+  % vocalspace    0.81cm
+  withxrefs     no
+  wordsfont     Times-Roman 12.0
+  wordsspace    0.00cm
+  writehistory  no

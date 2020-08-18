@@ -1,0 +1,28 @@
+% Format for "a4" mode
+  scale          0.65
+  pageheight    29.00cm
+  leftmargin     1.70cm
+  staffwidth     17.8cm
+  topmargin      2.0cm
+  topspace 	 1.0cm
+  botmargin      0.10cm
+  titlespace     0.20cm
+  subtitlespace  0.10cm
+  textspace      0.50cm
+  composerspace  0.10cm
+  partsspace     0.10cm
+  musicspace     1.20cm
+  staffsep       45.0pt
+  maxshrink      0.6
+  titleleft	 true
+  titlefont      Arial-Bold 16
+  partsfont      Helvetica-Bold 12
+  wordsfont      Arial 12
+  textfont       Arial 12
+  vocalfont      Times-Bold 13
+  gchordfont     Palatino-bold 20
+  composerfont   Arial 12
+  subtitlefont   Arial 12
+  barlinefont	 Arial 10
+  barnumberfont  Arial 10 box
+  barnumbers 0

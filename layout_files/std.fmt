@@ -1,0 +1,57 @@
+  pageheight     29.70cm
+  staffwidth     17.40cm
+  topmargin      1.00cm
+  botmargin      1.00cm
+  leftmargin     1.80cm
+  topspace       0.80cm
+  titlespace     0.20cm
+  subtitlespace  0.10cm
+  composerspace  0.20cm
+  musicspace     0.20cm
+  partsspace     0.30cm
+  wordsspace     0.00cm
+  textspace      0.50cm
+  vocalspace     23.0pt
+  staffsep       46.0pt
+  sysstaffsep    40.0pt
+  systemsep      55.0pt
+  scale          0.70
+  maxshrink      0.65
+  strictness1    0.50
+  strictness2    0.80
+  indent         30.0pt
+  titlefont      Times-Roman 15.0
+  subtitlefont   Times-Roman 12.0
+  composerfont   Times-Italic 11.0
+  partsfont      Times-Roman 11.0
+  tempofont      Times-Bold 10.0
+  vocalfont      Times-Roman 14.0
+  gchordfont     Helvetica 12.0
+  textfont       Times-Roman 12.0
+  wordsfont      Times-Roman 12.0
+  voicefont      Times-Roman 12.0
+  barnumberfont  Times-Italic 12.0
+  barlabelfont   Times-Bold 18.0
+  indexfont      Times-Roman 11.0
+  lineskipfac    1.1
+  parskipfac     0.4
+  barsperstaff   0
+  barnumbers     -1
+  landscape      no
+  titleleft      no
+  titlecaps      no
+  stretchstaff   yes
+  stretchlast    no
+  writehistory   no
+  continueall    no
+  breakall       yes
+  oneperpage     no
+  withxrefs      no
+  tabfontsize    14
+  tabfontscale   1.0
+  tabaddflags    2
+  tabrhstyle     simple
+  tabfontfrench  frFrancisque
+  tabfontitalian itTimes
+  tabledgeabove  no
+  tabflagspace   0.0pt

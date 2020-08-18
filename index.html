@@ -1,0 +1,88 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta name="robots" content="index,follow">
+  <title>pitch discrimination tool </title>
+  <link rel="stylesheet" href="" type="text/css">
+  <style type="text/css">
+  body {margin: 40px;
+    font-family: Arial,Helvetica,sans-serif;
+    max-width: 600px;
+    background: lightgrey;
+    }
+  </style>
+</head>
+<body>
+    <h3> Runabc </h3>
+<p> The latest version of the source code is still found on
+<a href="https://ifdo.ca/~seymour/runabc/top.html">ifdo.ca/~seymour/runabc/top.html</a>.
+<p>
+<b>Runabc</b> is a user interface to the abcmidi, abcm2ps, and
+abc2svg packages described elsewhere. Like EasyABC it
+allows you to create, edit, render and play ABC music
+notation files. The user interface is not as nice as
+EasyABC, but this program has a lot more functionality
+and is still being updated fairly frequently. The program is written in
+tcl/tk scripting language which unfortunately is tending
+to be forgotten language. In contrast, EasyABC is written in
+Python, a very popular language like Java, JavaScript,
+and C++. Owing to the difficulty of overcoming various
+problems with Python and its libraries, development of
+EasyABC has been slow.
+
+<p>
+There is already extensive documentation on how to use
+runabc.tcl on <a href=https://runabc.sourceforge.io>https://runabc.sourceforge.io</a>,
+so this note merely describes the content of this repository.
+
+<p>
+<b>runabc.tcl</b> is the biggest file and contains the source
+code. Assuming tcl/tk is already installed on your system,
+you run runabc.tcl from a command window (or terminal) by
+entering:
+
+<p>
+wish runabc.tcl
+
+<p>
+<b>runabc.ico</b> is the icon
+
+<p>
+<b>runabc.nsi</b> and <b>setup_runabc.iss</b> are scripts for creating
+an installer on Windows using either Nullsoft Scriptable Install
+or Inno Setup Script Wizard respectively. Presently I only
+use the latter. On Windows, I create a runabc.exe executable
+which includes the tcl/tk interpreter using starkits.
+
+<p>
+<b>gpl.txt</b> contains the Gnu general public license.
+
+<p>
+<b>runabc.txt</b> describes the design of the source code.
+
+<p>
+The abc file, <b>nmodes.abc</b> is actually required by runabc.tcl, in
+the case that you are using histogram matching to determine
+the mode (major, dorian, minor, ...) of the music. The file should
+be placed where runabc can find it -- usually in runabc_home.
+<p>
+
+The remaining stuff are in three separate folders described here.
+<p>
+
+<b>abc_examples</b> contains some files if you are interested in
+percussion instruments.
+<p>
+
+<b>extensions</b> contains some tcl/tk code which can be loaded
+into runabc using the options menu item load runabc extension.
+<p>
+
+and finally, <b>layout_files</b> contains a bunch of fmt files
+that abcm2ps or abc2svg can use.
+
+
+</body>
+</html>
+
+

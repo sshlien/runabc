@@ -1,0 +1,34 @@
+X: 1
+T: Don't bother to print this
+L: 1/8
+M: 2/4
+K:C
+Q:1/4=160
+%%MIDI drum dd 38 38
+!drum! z4|z4|
+%%MIDI drum d2d2dddz 38 38 38 38 38
+z4|z4|
+%%MIDI drum d2d2d4 38 38 49
+z4|z4|
+%%MIDI drum dd3d2d2 38 38 38 38
+z4|z4|
+%%MIDI drum dd3d2d2 38 38 61 61
+z4|z4|
+%%MIDI drum ddddd4 38 38 38 38 38
+z4|z4|
+%%MIDI drum dzddd4 38 38 38 38
+z4|z4|
+%%MIDI drum dzzddzzdd 38 38 38 38 38
+z4|z4|
+%%MIDI drum dddzdzdz 38 38 38 37 37
+z4|z4|
+%%MIDI drum dd3d2d2 38 38 38 38
+z4|z4|
+%%MIDI drum dddd3d3d3 38 38 38 38 38 38
+z4|z4|
+%%MIDI drum d2d2 38 38
+z4|z4|
+
+
+
+

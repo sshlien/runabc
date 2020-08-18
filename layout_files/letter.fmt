@@ -1,0 +1,24 @@
+% Format for US 8.5x11 "letter" mode
+  scale          0.65
+  pageheight    28.00cm
+  leftmargin     1.70cm
+  staffwidth     18.8cm
+  topmargin      0.10cm
+  topspace 1.20cm
+  botmargin      0.10cm
+  titlespace     0.20cm
+  subtitlespace  0.10cm
+  textspace      0.50cm
+  composerspace  0.10cm
+  partsspace     0.10cm
+  musicspace     0.20cm
+  staffsep       45.0pt
+  maxshrink      1.00
+  titlefont      Helvetica-Bold 16
+  partsfont      Helvetica-Bold 12
+  wordsfont      Times-Roman 12
+  textfont       Times-Roman 12
+  vocalfont      Times-Bold 13
+  gchordfont     Helvetica-Bold 12
+  composerfont   Times-Italic 12
+  subtitlefont   Times-Roman 12

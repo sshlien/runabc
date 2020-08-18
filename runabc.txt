@@ -1,0 +1,198 @@
+Updated somewhat on August 18 2020.
+
+Runabc.tcl is now close to 2600 lines and this documentation
+is somewhat dated.
+
+The entire source code is in just one file, runabc.tcl. It makes
+it easier for me to navigate it using the vi (or vim) editor. 
+In order to find the code relating to a particular function,
+I search for the button or menu button, that calls this function.
+For example, 'drum tool' leads me to drumtool_gui_setup and
+then I just search for 'proc drumtool_gui_setup'.
+
+There is a table of contents which facilitates
+navigating the code. For example to find the code for Editor Clean
+Functions search for the string "Part 10.5" or the string
+"Editor Clean Functions" without (the double quotes).
+
+The program uses a lot of global variables to avoid long
+parameter lists in the procedures. I try to put only one
+global variable in a global statement, to make it easier
+to find the places where the variable is declared. For
+example:
+global midi
+
+which is an array used throughout the code. The variables
+in the midi array are generally saved or loaded into a
+initialization file called runabc.ini. If you look at that
+file, there are now many variables which maintain the state
+of the program. The runabc.ini file is stored in a separate
+directory called runabc_home, in your home directory. The
+runabc_home directory can contain temporary files needed
+by runabc and any other files that you wish to save.
+
+Here is a description of how the core functions of runabc
+are implemented.
+
+Each new feature introduced was added to the end of the
+source code. So the organization of the code to haphahazard.
+The basic functions which I describe here are at the beginning.
+
+Part 2.0 contains the code which starts up runabc.
+To save the user many key strokes and mouse clicks, runabc
+saves and loads its state when it was last closed using
+the function write_runabc_ini. For example runabc will
+automatically load the last abc file you worked with and
+initialize with the many other user options which were
+set. All of these state variables are stored in a tcl
+association array called midi() and recorded in a a file
+called runabc.ini which is placed in the same folder as
+runabc.tcl (or executable). If you wish to do a cold start,
+you can delete runabc.ini before starting runabc. In case
+the file runabc.ini was not found, the function midi_init{}
+will set these state variables. The function check_integrity {}
+is called to report any problems that the program may
+encounter because of missing files.
+
+
+Part 3.0 button icons are found here.
+
+
+Part 4.0 contains all the widgets in the menu bars. The buttons
+and menubuttons are packed  the  menu bar called .abc.functions
+which is placed near the top of the .abc window. All of these
+buttons and menu items are linked to to function calls which are
+defined in other parts of the code.  Tooltips associated with the
+buttons are introduced here.
+
+
+Part 5.0 contains some miscellaneous code. The setup of the
+treeview listbox for displaying the table of contents (TOC)
+of an abc file containing a collection of tunes is done here.
+
+Part 6.0 contains the core functions such creating a MIDI file
+from a selected tune and playing it on the media player, creating
+a PostScript of SVG file and displaying it, and saving the 
+MIDI file or collection of MIDI files in a folder.
+
+play_action{} converts the selected abc tunes into a midi file
+which is stored in a tmp folder. First all old midi files
+are deleted from the tmp folder. Next an abc file, X.tmp,
+which is also put in the tmp folder, is created from the
+selected tunes. Depending on whether the melody is doubled or
+not one of the functions create_tmp_voiced_abc or 
+tune2Xtmp is called. This is determined by the variable
+midi(double) and whether the selected tune is not a multivoiced
+tune. Abc2midi is then applied on the X.tmp to create the
+midi file(s). If the stress model option is checked,
+$midi(barflymode), then the -BF runtime parameter is added
+to the abc2midi command line. A list of all the created
+MIDI files is recorded in the global variable files. Finally,
+play_action calls play_midis which forwards these files to
+the midiplayer.
+
+The user can designate two midi players in runabc. play_midis {}
+will invoke one of the players determined by the variable
+$midi(player) which the user had set using one of the menus.
+Some of the midi players may require extra run time parameters,
+which the user provided in one of the configuration windows.
+
+display_action is called by the menu button 'Display' 
+(.abc.functions.disp). The selected tune numbers are obtained
+from the function title_selected, the selected tunes are
+copied to X.tmp, and the function diplay_tunes does the
+remaining work of calling one of the PostScript converters
+(yaps, abc2ps, or abcm2ps) and calling the PostScript or
+Svg rendering program.
+
+
+midisave_list{}, midisave_list_continue{}, midisave_tool{}
+are support functions for making, saving, renaming MIDI files.
+
+
+Part 7.0 contains the function title_index{abcfile} which
+scans an abc file containing a collection of tunes and
+updates the listbox created in Part 5.0. The reference numbers,
+title, meter, and key signature are gathered for each tune.
+The X: reference number must be present in order for this
+function to work. In addition, the function stores the position
+in bytes of the start of each tune in the global association array
+fileseek(). Fileseek() allows random access to each tune in
+the file.
+
+There are several issues in generating this index.  We cannot
+assume that each tune has a unique X: reference number or is
+numbered sequentially. Some tunes may be missing a T: field and
+use a P: field to provide the name of the tune. Some tunes may
+have more than one title field (T:) providing alternate titles
+to the tune. Though tunes are supposed to be separated by
+blank lines, this is not always the case. The abc file may
+contain a lot of explanatory text which is not part in abc format.
+The tree listbox can sort the tunes by reference number, title,
+key signature or meter. The user can select a bunch of tunes
+or all of the tunes in the listbox.
+
+The function title_index extracts the X: reference number,
+first title field T:, meter M:, and key signature K: for each tune it
+identifies in the open abc file and posts it to the listbox. In addition it
+maintains two global arrays, fileseek() and item_id(). The item_id(n)
+maps the sequential position of the tunes position in the abc file
+to its position in the listbox. This will be needed when the tunes
+in the listbox are sorted by another field. The fileseek() array
+holds the exact position of the start of the tune in the open abc
+file. The flag midi(blank_lines) controls whether a tune is
+automatically terminated by a blank line. title_index is called
+any time the input abc file is changed.
+
+The function title_selected{} returns the list of tunes selected
+in the table of contents (TOC) list box. It is called by many
+functions play_action {} and display_action{}.
+
+
+Part 8.0
+
+The functions tune2Xtmp {tunes} and create_tmp_voiced_abc {tunes}
+are create the X.tmp file for abc2midi. The latter function is a
+clone of the tune2Xtmp and is used to double the main voice.
+The functions insert %%MIDI commands in the output file using
+the function write_midi_codes {}, so that the voices and accompaniment
+are played according to the user's selection stored in the midi() array.
+The functions will not work properly if the field commands are inline (eg.)
+[V:1] ABcd|defg etc.
+[V:2] FGAB|etc...
+
+
+Part 9.0
+
+This section contains an assortment of functions for copying selected
+tunes to a file or a collection of files. These some of the support
+functions in the utilities/copy to file menu.
+
+Part 10.0
+
+Abc Editor. This section represents about 2300 lines of code and
+is divided in about 9 subsections.
+
+
+Part 11.0
+
+Some miscellaneous functions which display messages and executes
+abc2abc.
+
+
+Part 12.0
+
+User interface to various configuration sheets. Rather than popping
+up new windows, the requested configuration sheet is created on the
+fly by displaying or hiding various widgets which were created
+earlier. Some of the support
+functions are:
+show_midi_page {}
+remove_midi_page {}
+remove_old_sheet {}
+show_ps_page {}
+show_abc2abc_page {}
+
+etc...
+There are now more than 40 parts.
+
