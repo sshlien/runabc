@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.237
-set runabc_date "(July 29 2020 10:40)"
+set runabc_version 2.241
+set runabc_date "(August 25 2020 11:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1614,11 +1614,14 @@ button .abc.functions.toc -text toc -image content-22 -command show_titles_page 
 set w .abc.functions.playopt
 menubutton $w -text "play options" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
+$w.type add checkbutton -label "use midi header" -font $df -variable midi(use_midi_header)
 $w.type add command  -label tempo/pitch  -command {show_midi_page 1} -font $df
 $w.type add command  -label arrangement  -command {show_midi_page 2} -font $df
 $w.type add command  -label "advanced settings" -command {show_midi_page 8} -font $df
 $w.type add command  -label  drumkit     -command drum_editor -font $df
 $w.type add command  -label voices       -command show_voice_page  -font $df
+$w.type add command  -label "random voice arrangement"  -command random_voice_arrangement  -font $df
+$w.type add command  -label help -command {show_message_page $hlp_playopt word} -font $df
 
 
 set w .abc.functions.yaps
@@ -1627,8 +1630,6 @@ menu $w.type -tearoff 0
 $w.type add command -label options -command {show_ps_page yaps} -font $df
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
-#$w.type.selector add radiobutton -label abc2ps  -variable midi(ps_creator) \
-#        -value abc2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label abcm2ps  -variable midi(ps_creator) \
         -value abcm2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label abc2svg  -variable midi(ps_creator) \
@@ -1645,8 +1646,6 @@ $w.type add command -label "create format file" -font $df \
 $w.type add command -label options -command {show_ps_page abc2svg} -font $df
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
-#$w.type.selector add radiobutton -label abc2ps  -variable midi(ps_creator) \
-#        -value abc2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label abcm2ps  -variable midi(ps_creator) \
         -value abcm2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label yaps  -variable midi(ps_creator) \
@@ -1664,8 +1663,6 @@ $w.type add command -label "create format data" -font $df \
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 
 menu $w.type.selector -tearoff 1
-#$w.type.selector add radiobutton -label abc2ps  -variable midi(ps_creator) \
-#        -value abc2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label yaps  -variable midi(ps_creator) \
         -value yaps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
@@ -1681,8 +1678,6 @@ menu $w.type -tearoff 0
 $w.type add  radiobutton -label "options" -font $df  -command show_other_ps
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
-#$w.type.selector add radiobutton -label abc2ps  -variable midi(ps_creator) \
-#        -value abc2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label abcm2ps  -variable midi(ps_creator) \
         -value abcm2ps  -font $df -command switch_ps_button
 $w.type.selector add radiobutton -label yaps  -variable midi(ps_creator) \
@@ -1704,7 +1699,6 @@ $w.type add command -label  "button style" -command {show_config_page 6} -font $
 $w.type add checkbutton -label "remember locations of windows" -font $df\
  -variable midi(autoposition)
 $w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
-$w.type add checkbutton -label "use midi header" -font $df -variable midi(use_midi_header)
 $w.type add checkbutton -label "index by position" -variable midi(index_by_position) -font $df
 $w.type add checkbutton -label "ignore blank lines" -variable midi(blank_lines)  -font $df
 $w.type add checkbutton -label "bell on file write" -variable midi(bell_on)  -font $df
@@ -6169,7 +6163,7 @@ proc show_midi_page {subsection} {
             default { set w_list "" }
         }
         foreach i $w_list {
-            pack .abc.midi1.$i -side top
+            pack .abc.midi1.$i -side top -anchor w
         }
         set midi_subsection $subsection
         pack .abc.midi1
@@ -7462,6 +7456,28 @@ for {set i 1} {$i <17} {incr i} {
             -variable midi(lvoice$i) -font $df
 }
 
+
+proc random_voice_arrangement {} {
+global midi
+for {set i 1} {$i < 17} {incr i} {
+   set v voice$i
+   set num [expr int(rand()*128)]
+   set midi($v) $num
+   }
+   map_midi_to_voices
+}
+
+proc map_midi_to_voices {} {
+global midi
+global m
+set w .abc.voice.canvas.f
+for {set i 1} {$i <17} {incr i} {
+  set i1 [expr int(1 + $midi(voice$i)/8)]
+  set i2 [expr $midi(voice$i) % 8 ]
+  $w.prog$i configure -text [lindex $m($i1) $i2]
+  }
+}
+
 proc voice_button {num X Y} {
     global window chan
     set window .abc.voice.canvas.f.prog$num
@@ -8166,9 +8182,6 @@ set hlp_cfg "Other configuration items\n\n\
 use ps header: if checked all the postscript commands beginning with %%\
 occurring in the beginning of abc file (before the first X:)\
 will be inserted in the selected tune before it is displayed.\n
-use midi header: if checked all the midi commands beginning with %%MIDI\
-occurring in the beginning of the abc file (before the first X:)\
-will be inserted in the selected tune before it is played.\n
 greetings: shows the start up message you see the first time you run runabc.tcl\
 i.e. (runabc.ini is missing). The message may report potential problems.\n
 sanity check: checks the for the presence of all helper programs (eg. abc2midi)\
@@ -8333,6 +8346,16 @@ Midi drone control\n\n\
         F and C are sharp and G is natural. By convention, if HP is\
         indicated no key signature is indicated in the score. It is indicated\
         for Hp."
+
+set hlp_playopt " Play Options\n\n\
+        There is context help for most of the options in this menu with some\
+	exceptions.\n\n\
+        use midi header: if checked all the midi commands beginning with %%MIDI\
+        occurring in the beginning of the abc file (before the first X:)\
+        will be inserted in the selected tune before it is played.\n\n\
+	random voice arrangement: will assign random midi programs to the\
+	voices in the voices frame exposed with the above menu item.
+	"
 
 
 set hlp_midi4 " Advanced settings\n\n\
@@ -17377,6 +17400,7 @@ proc random_arrangement {} {
     set window .abc.midi1.bass.bassbut
     program_select $p1 $p2
 }
+
 
 
 proc replace_edited_tune {} {
