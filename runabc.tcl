@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.241
-set runabc_date "(August 25 2020 11:40)"
+set runabc_version 2.242
+set runabc_date "(August 28 2020 15:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -12267,7 +12267,7 @@ proc check_midi2abc_options {filein onebpl} {
         return 1
     }
     if {[powerof2 $midi(midippu) 8] == 0} {
-        show_message_page "parts/unit must be a power of 2 less than 16.\n" word
+        show_message_page "parts/unit must be a power of 2 less than 16 and greater than zero.\n" word
         return 1
     }
     if {$midi(midilden) != 0 && [powerof2 $midi(midilden) 32] == 0} {
@@ -12432,7 +12432,8 @@ proc run_midi2abc {} {
     .midi2abc.last.edit configure -state normal
     .midi2abc.last.playorig configure -state normal
     set barpickerflag 0
-    update_console_page
+    # do not update console page as it will obscure error
+    # messages returned by check_midi2abc_options.
     }
 
 proc play_midi_file {name} {
@@ -25392,7 +25393,9 @@ set exec_out $exec_out\n$cmd
 set shortresult [string range $result 0 50]
 set shortresult $shortresult...
 set exec_out $exec_out\n$shortresult
-update_console_page
+#update_console_page
+# do not update console page as it will obscure error
+# messages returned by check_midi2abc_options.
 big_edit_abc_output $result
 }
 
