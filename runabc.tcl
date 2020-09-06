@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.242
-set runabc_date "(August 28 2020 15:00)"
+set runabc_version 2.244
+set runabc_date "(September 06 2020 08:10)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2053,7 +2053,7 @@ return $scriptlist
 
 
 
-proc copyXtmptohtml {} {
+proc copytohtml {abcfile} {
 global midi
 global urlpointer
 
@@ -2080,15 +2080,10 @@ set preface $html_preamble
 
 
 
- switch $midi(webscript) {
-    1 {append preface "</head>\n<body>\n%abc\n"}
-    2 {append preface "</head>\n<body>\n<!--\n"}
-    3 {append preface "</head>\n<body>\n<script type=\"text/vnd.abc\" class=\"abc\">"}
-}
 
 
 
-set inhandle [open [file join [pwd] X.tmp] r]
+set inhandle [open $abcfile r]
 set wholefile [read $inhandle]
 close $inhandle
 
@@ -2248,7 +2243,7 @@ proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
         catch {eval $cmd} exec_out
         set exec_abcmps "$cmd\n\n$exec_out"
     } elseif {$midi(ps_creator) == "abc2svg"} {
-	    copyXtmptohtml
+	    copytohtml $abcfile
             set cmd "exec [list $midi(path_internet)] file:[list $midi(outhtml)] &"
 	    catch {eval $cmd} exec_out
 	    set exec_out "$cmd\n$exec_out"
