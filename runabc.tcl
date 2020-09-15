@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.244
-set runabc_date "(September 06 2020 08:10)"
+set runabc_version 2.247
+set runabc_date "(September 15 2020 09:15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -99,6 +99,7 @@ if {[catch {package require Ttk} error]} {
 # Part 43.0               Notegram
 # Part 44.0               Midistructure
 # Part 45.0               big abc editor
+# Part 46.0               pgram
 
 
 
@@ -825,6 +826,8 @@ proc midi_init {} {
     set midi(.preferred_chords) ""
     set midi(.notegram) ""
     set midi(.preferences) ""
+    set midi(.pgram) ""
+
 
     # button appearance
     set midi(butborder) 3
@@ -1061,6 +1064,12 @@ proc midi_init {} {
     set midi(notegram) fifths
 
     set midi(attenuation) 20
+
+    set midi(pgrammode) nochord
+    set midi(pgramwidth) 500
+    set midi(pgramheight) 350
+    set midi(pgramthick) 2
+
 }
 
 # save all options, current abc file
@@ -1601,6 +1610,7 @@ menu .abc.functions.midi.type -tearoff 0
 .abc.functions.midi.type add command -label "midi2abc"   -font $df  -command show_midi2abc_page
 .abc.functions.midi.type add command -label "midistructure"   -font $df  -command midi_structure_window
 .abc.functions.midi.type add command -label "pianoroll"   -font $df  -command {piano_window $midi(midifilein)}
+.abc.functions.midi.type add command -label "pianoroll"   -font $df  -command {piano_window $midi(midifilein)}
 .abc.functions.midi.type add command -label "drum events" -font $df -command drumroll_window
 .abc.functions.midi.type add command -label "mftext by beats" -font $df  -command {
    set midi(mftextunits) 2
@@ -1901,6 +1911,7 @@ proc abcmidi_no_such_error {exefile} {
             icon)."
     show_error_message $msg
 }
+
 
 
 #####  Functions to Play, Display, Edit #####
@@ -4930,6 +4941,7 @@ proc play_from_edit_window {mode abctxtw} {
     
     if {[string compare $mode line] == 0} {
         set point [$abctxtw index insert]
+	puts "point = $point"
         set selstart [lindex [split $point .] 0]
         if {$selstart > $body_end} {
             set point $body_start.0
@@ -12082,7 +12094,6 @@ if {[winfo exists .durpdf]} {
    midi_statistics duration
    plotmidi_duration_pdf
    }
-
 }
 
 proc beat_cmd {sel} {
@@ -23887,7 +23898,7 @@ proc make_midi_summary {} {
 	      show_note_distribution}
    $w.pitch.items add command -label "notegram" -font $df\
     -command notegram_plot
-   button $w.velocity -text "velocity pdf" -font $df\
+   $w.pitch.items add command -label "velocity pdf" -font $df\
     -command {midi_statistics velocity
 	      plotmidi_velocity_pdf}
    button $w.roll -text "piano roll" -font $df \
@@ -23896,10 +23907,11 @@ proc make_midi_summary {} {
    menu $w.abcmenu.items -tearoff 0
    $w.abcmenu.items add command  -label midi2abc -font $df -command show_midi2abc_page
    $w.abcmenu.items add command  -label editor -font $df -command big_create_abc_file
+   button $w.pgram -text pgram -font $df -command pgram_window
    button $w.browse -text "browse" -command midi_file_browser -font $df
    button $w.help -text "help" -font $df -command {show_message_page $hlp_msummary word}
 
-   pack $w.rhythm $w.pitch $w.velocity $w.roll $w.abcmenu $w.browse $w.help -side left -anchor w
+   pack $w.rhythm $w.pitch $w.roll $w.pgram $w.abcmenu $w.browse $w.help -side left -anchor w
 
    set w .msummary.data
    frame $w
@@ -23955,6 +23967,7 @@ beat_cmd 2
 
 proc update_midi_summary {} {
 if {[winfo exist .msummary]} midisummary::summarize_midi_file
+if {[winfo exists .pgram]} pgram_window
 }
 
   
@@ -24181,7 +24194,7 @@ namespace eval midisummary {
 # The code was borrowed from midiexplorer.tcl
 
  variable trkinfo
- variable xchannel2program
+ global xchannel2program
  variable channel2program
  variable channel_activity
 
@@ -24213,7 +24226,7 @@ namespace eval midisummary {
 # separately rather than rely on trkinfo
  global ntrks
  variable trkinfo
- variable xchannel2program
+ global xchannel2program
  for {set i 0} {$i < 17} {incr i}  {set xchannel2program($i) 0}
  for {set i 1} {$i <= $ntrks} {incr i} {
    foreach token $trkinfo($i) {
@@ -24339,7 +24352,7 @@ namespace eval midisummary {
  global mlist
  global midi
  variable channel2program
- variable xchannel2program
+ global xchannel2program
  variable channel_activity
 
  set w .msummary.data
@@ -24373,7 +24386,7 @@ namespace eval midisummary {
  global mlist
  global midi
  variable channel2program
- variable xchannel2program
+ global xchannel2program
  variable channel_activity
  global ntrks
  set w .msummary.data
@@ -24726,7 +24739,9 @@ if {[winfo exists .durpdf]} {
 if {[winfo exists .midivelocity]} {
    plot_velocity_map
    }
-
+if {[winfo exists .pgram]} {
+   pgram_window 
+   }
 }
 
 
@@ -24911,26 +24926,26 @@ set progmapper {
 }
 
 
-
-set groupcolors {{medium blue}  
-                 Dodgerblue4    
-                 orange3   
-                 {cadet blue}   
-                 {orange red}   
-                 {indian red}   
-                 {blue violet}  
-                 magenta4       
-                 {deep pink}    
+set groupcolors {{medium blue}
+                 Dodgerblue4
+                 orange3
+                 {chartreuse}
+                 {orange red}
+                 {indian red}
+                 {blue violet}
+                 magenta4
+                 {deep pink}
                  yellow
-                 gray12         
-                 green4         
+                 gray30
+                 green4
                  turquoise
-                 firebrick      
-                 sienna4        
-                 maroon         
-                 darkolivegreen 
-                 darkgoldenrod4 
+                 firebrick
+                 sienna4
+                 maroon
+                 {dodger blue}
+                 {slate gray}
                  }
+
 
 set groupnames { "piano keyboard"
                  "xylophone category"
@@ -25348,7 +25363,6 @@ file rename -force $midi(outfilename) $filename
 # Part 45.0               big abc editor
 #
 #
-#   Part 19.0 abc file
 #
 set hlp_big_abc_editor "Abc Editor\n\n\
 This editor is designed to handle the large abc notated text\
@@ -25549,6 +25563,485 @@ catch {eval $cmd} result
 append exec_out \n$result
 }
 
+
+
+# Part 46.0               pgram
+
+set hlp_pgram "Pgram\n\n\
+The pgram provides a different way of visualizing a midi file.\
+The plot is similar to the piano roll representation, except the temporal\
+detail is reduced in order to yield a big picture. The different\
+instruments (programs) are color coded like in midi structure. (Keyboard\
+instruments are in dark blue, string instruments in purple, and etc.)\
+The higher pitches appear at higher elevations.\n\n\
+Moving the mouse pointer on any of the notes will highlight all the\
+notes belonging to the same midi channel and indicate in the status\
+line below the name of the instrument. Moving the mouse pointer over\
+any of the channel check buttons below, will also highlight the notes belonging\
+to that channel. In case the highlighting does not work for that\
+channel, it is likely that there is another channel which displayed\
+the same pitches.\n\n\
+The abc button will generate an abc file and open an editor to this\
+file. You can select a time interval by sweeping the mouse\
+pointer from left to right over the region of interest while holding\
+down the left mouse button. You can also specify the midi channels\
+of interest by checking the appropriate check buttons.\n\n\
+This representation is still somewhat experimental. The configuration menu,\
+allows you to change some the way it is displayed.
+
+"
+
+proc p_highlight {c} {
+global mlist
+global last_high
+global xchannel2program
+set last_high $c
+.pgram.c itemconfigure c$c -fill white 
+set program [lindex $mlist $xchannel2program($c)]
+.pgram.stat configure -text "channel $c --> $program"
+}
+
+proc p_unhighlight {c} {
+global last_high
+global progmapper
+global groupcolors
+global xchannel2program
+if {$last_high < 0} return
+set p $xchannel2program($last_high)
+set g [lindex $progmapper $p]
+set kolor [lindex $groupcolors $g]
+.pgram.stat configure -text ""
+.pgram.c itemconfigure c$c -fill $kolor 
+set last_high -1
+}
+
+
+proc pgram_window {} {
+global df
+global hlp_pgram
+global midi
+global midichannels
+global xchannel2program
+if {![winfo exist .pgram]} {
+  toplevel .pgram
+  position_window .pgram
+  frame .pgram.hdr
+  pack .pgram.hdr -anchor w
+  button .pgram.hdr.cfg -text configure -font $df -command pgram_cfg
+  button .pgram.hdr.play -text play -font $df -command pgram_play
+  button .pgram.hdr.abc -text abc -font $df -command pgram_abc
+  button .pgram.hdr.hlp -text help -font $df -command {show_message_page $hlp_pgram word}
+  label .pgram.hdr.file -text "" -font $df -width 45 
+  pack .pgram.hdr.cfg .pgram.hdr.play .pgram.hdr.abc .pgram.hdr.hlp .pgram.hdr.file -side left -anchor w
+  set pgraph .pgram.c
+  canvas $pgraph -width $midi(pgramwidth) -height $midi(pgramheight) -border 3 
+  pack $pgraph
+  bind_pgram_tags
+  frame .pgram.chn
+  pack .pgram.chn
+  label .pgram.chn.txt -text "channels: " -font $df
+  pack .pgram.chn.txt -side left
+  label .pgram.stat -text "" -font $df
+  pack .pgram.stat
+  for {set i 1} {$i < 17} {incr i} {
+	  checkbutton .pgram.chn.$i -text $i -font $df -relief ridge -bd 2 -padx 1 -variable midichannels($i)
+	  pack .pgram.chn.$i -side left
+	  bind .pgram.chn.$i <Enter> "p_highlight $i"
+	  bind .pgram.chn.$i  <Leave> "p_unhighlight $i"
+          }
+  bind $pgraph <ButtonPress-1> {pgram_Button1Press %x %y}
+  bind $pgraph <ButtonRelease-1> {pgram_Button1Release}
+  bind $pgraph <Double-Button-1> pgram_ClearMark
+  }
+compute_pgram
+
+}
+
+proc pgram_cfg {} {
+global midi
+global df
+if {![winfo exist .pgramcfg]} {
+  set p .pgramcfg
+  toplevel $p
+  frame $p.mode
+  pack $p.mode -anchor w 
+  radiobutton $p.mode.c -text "chord mode" -font $df -variable midi(pgrammode) -value chord
+  radiobutton $p.mode.p -text "no chord mode" -font $df -variable midi(pgrammode) -value nochord
+  pack $p.mode.c $p.mode.p -side left -anchor w
+  frame $p.width
+  pack $p.width -anchor w
+  label $p.width.txt -text "plot width" -font $df
+  entry $p.width.ent -textvariable midi(pgramwidth) -font $df
+  pack $p.width.txt $p.width.ent -side left -anchor w
+  frame $p.height
+  pack $p.height
+  label $p.height.txt -text "plot height" -font $df
+  entry $p.height.ent -textvariable midi(pgramheight) -font $df
+  pack $p.height.txt $p.height.ent -side left -anchor w
+  button $p.reset -text reset -font $df -command pgram_reset
+  frame $p.linewidth
+  pack $p.linewidth
+  label $p.linewidth.txt -text "line thickness" -font $df
+  entry $p.linewidth.ent -textvariable midi(pgramthick) -font $df
+  pack $p.linewidth.txt $p.linewidth.ent -side left -anchor w
+  pack $p.reset -anchor w
+  }
+}
+
+proc pgram_reset {} {
+global midi
+set midi(pgrammode) nochord
+set midi(pgramwidth) 500
+set midi(pgramheight) 350
+set midi(pgramthick) 2
+}
+
+
+
+proc bind_pgram_tags {} {
+set pgraph .pgram.c
+for {set i 0} {$i < 17} {incr i} {
+        $pgraph bind c$i <Enter> "p_highlight $i"
+        $pgraph bind c$i <Leave> "p_unhighlight $i"
+    }
+}
+
+#        Support functions
+
+proc pgram_Button1Press {x y} {
+    global midi
+    global pxlbx pxrbx
+    set xc [.pgram.c canvasx $x]
+    if {$xc < $pxlbx} {set xc $pxlbx}
+    .pgram.c raise mark
+    .pgram.c coords mark $xc 21 $xc $midi(pgramheight)
+    bind .pgram.c <Motion> { pgram_Button1Motion %x }
+}
+
+proc pgram_Button1Motion {x} {
+    global midi
+    global pxlbx pxrbx
+    set xc [.pgram.c canvasx $x]
+    if {$xc < $pxlbx} { set xc $pxlbx }
+    if {$xc > $pxrbx} { set xc $pxrbx}
+    set co [.pgram.c coords mark]
+    .pgram.c coords mark [lindex $co 0] 21 $xc $midi(pgramheight)
+}
+
+proc pgram_Button1Release {} {
+    bind .pgram.c <Motion> {}
+    set co [.pgram.c coords mark]
+}
+
+proc pgram_ClearMark {} {
+    .pgram.c coords mark -1 -1 -1 -1
+}
+
+
+
+proc reset_pitch_bands {} {
+global bminpitch
+global bmaxpitch
+# reset
+for {set i 0} {$i < 32} {incr i} {
+  set bminpitch($i) 128
+  set bmaxpitch($i) 0
+  }
+}
+
+proc vbuildpgram {} {
+global sorted_pianoresult
+global ppqn
+global bminpitch
+global bmaxpitch
+global activechan
+set lastbegin 0
+reset_pitch_bands
+if [info exist activechan] {
+  unset activechan
+  }
+foreach line $sorted_pianoresult {
+     set begin [lindex $line 0]
+     set end [lindex $line 1]
+     if {[llength $line] == 6} {
+       set begin [expr $begin/$ppqn]
+       if {$begin > $lastbegin} {output_pitch_bands $lastbegin
+	                         set lastbegin $begin}
+       set end [expr [lindex $line 1]/$ppqn]
+       set t [lindex $line 2]
+       set c [lindex $line 3]
+       set activechan($c) 1
+       set pitch [lindex $line 4]        
+       if {$pitch > $bmaxpitch($c)} {set bmaxpitch($c) $pitch}
+       if {$pitch < $bminpitch($c)} {set bminpitch($c) $pitch}
+       }
+      }
+}
+
+
+proc hbuildpgram {} {
+# We draw the notes horizontally, grouping all the
+# notes of the same pitch in the same beat location.
+# We can have several pitches (chord) occurring in the
+# same beat and same channel. Therefore we separate by
+# pitch rather than by channel. It is possible that two
+# different channels produces the same pitched note, but
+# we assume it does not happen too frequently.
+global sorted_pianoresult
+global ppqn
+global activechan
+global endpitchstrip
+set lastbegin 0;
+reset_endpitchstrip
+if [info exist activechan] {
+  unset activechan
+  }
+foreach line $sorted_pianoresult {
+     if {[llength $line] == 6} {
+       set begin [expr [lindex $line 0]/$ppqn]
+       if {$begin > $lastbegin} {output_pstrip $lastbegin
+	                         set lastbegin $begin}
+       set t [lindex $line 2]
+       set c [lindex $line 3]
+       if {$c == 10} continue
+       set activechan($c) 1
+       set end [expr [lindex $line 1]/$ppqn]
+       set pitch [lindex $line 4]        
+       set endpitchstrip($pitch) [list $end $c]
+       }
+      }
+}
+
+proc reset_endpitchstrip {} {
+global endpitchstrip
+for {set i 1} {$i < 128} {incr i} {
+  set endpitchstrip($i) 0
+  }
+}
+
+
+
+proc compute_pgram {} {
+global midi
+global ppqn
+global chn2prg
+global exec_out
+global sorted_pianoresult
+global beats_per_pixel
+global pxlbx pxrbx
+global activechan
+
+set pgraph .pgram.c
+set infile $midi(midifilein)
+set infilelength [string length $infile]
+if {$infilelength > 42} {
+  set infile [string range $infile [expr $infilelength -45] end]
+  set infile "...$infile"
+}
+.pgram.hdr.file configure -text $infile
+$pgraph delete all
+.pgram.c create rect -1 -1 -1 -1 -tags mark -fill grey30 -stipple gray25
+set pgraphwidth $midi(pgramwidth)
+set pxrbx [expr $pgraphwidth - 3]
+set pxlbx  40
+set ytbx 20
+set ybbx [expr $midi(pgramheight) + 20]
+
+$pgraph create rectangle $pxlbx $ytbx $pxrbx $ybbx -outline white\
+            -width 2 -fill grey5
+
+incr pxlbx 3
+incr pxrbx -3
+
+set exec_options "[list $midi(midifilein)] -midigram"
+set cmd "exec [list $midi(path_midi2abc)] $exec_options"
+catch {eval $cmd} pianoresult
+ if {[string first "no such" $pianoresult] >= 0} {abcmidi_no_such_error $midi(path_midi2abc)}
+set pianoresult [split $pianoresult \n]
+set sorted_pianoresult [lsort -command compare_onset $pianoresult]
+set nrec [llength $pianoresult]
+set midilength [lindex $pianoresult [expr $nrec -1]]
+if {![string is integer $midilength]} {
+	set msg "$midilength for file $midi(midifilein)"
+	show_error_message $msg
+	return
+     }
+set nbeats [expr $midilength/$ppqn]
+set exec_out compute_pgram:\n$cmd\n\n$pianoresult
+
+Graph::alter_transformation $pxlbx $pxrbx $ybbx $ytbx 0.0 $nbeats 0.0 110.0 
+set beats_per_pixel [expr $nbeats/double($pxrbx - $pxlbx)]
+pgram_vscale
+
+if {$midi(pgrammode) == "chord"} {
+  vbuildpgram
+  } else {
+  hbuildpgram
+  }
+
+p_reveal_buttons 
+update_console_page
+}
+
+proc pgram_vscale {} {
+global df
+set pgraph .pgram.c
+for {set i 1} {$i < 10} {incr i} {
+  set oct C$i
+  set p [expr $i*12 + 12]
+  set iy [Graph::iypos $p]
+  $pgraph create text 20 $iy -text $oct -font $df
+  }
+}
+
+proc p_reveal_buttons {} {
+global activechan
+set butlist [lsort -integer [array names activechan]]
+for {set i 1} {$i < 17} {incr i} {
+   pack forget .pgram.chn.$i 
+   }
+foreach but $butlist {
+   if {$but == 10} continue
+   pack .pgram.chn.$but -side left
+   }
+}
+
+proc output_pitch_bands {beat} {
+global bminpitch
+global bmaxpitch
+global xchannel2program
+global progmapper
+global groupcolors
+global midi
+set pgraph .pgram.c
+set thickness $midi(pgramthick)
+set ix [Graph::ixpos $beat]
+set ix2 [expr $ix+2]
+for {set i 0} {$i < 16} {incr i} {
+  if {$i == 10} continue
+  if {$bminpitch($i) < 128} {
+	  set iy1 [Graph::iypos $bminpitch($i)]
+	  set iy2 [Graph::iypos $bmaxpitch($i)]
+          set p $xchannel2program($i)
+          set g [lindex $progmapper $p]
+          set kolor [lindex $groupcolors $g]
+	  set w [expr $iy1 - $iy2]
+	  #puts "i = $i p = $p g = $g kolor = $kolor"
+	  if {$w < 3} {set iy1 [expr $iy2+2]}
+	  if {$w > 10} {set pat {1 6}
+	  } elseif {$w > 5} {set pat {1 3}
+          } else {set pat {1 1}}
+	  #if {$i == 7} {puts "chn7 : $w $ix $iy1 $ix2 $iy2 $kolor $pat"}
+          $pgraph create line $ix $iy1  $ix $iy2\
+	      -fill $kolor -dash $pat -tag c$i -width $thickness
+          }
+  }
+reset_pitch_bands
+}
+
+proc output_pstrip {beat} {
+# create rectangle does not work well here because
+# they all have outlines which are not optional.
+global endpitchstrip
+global xchannel2program
+global progmapper
+global groupcolors
+global midi
+set pgraph .pgram.c
+set thickness $midi(pgramthick)
+set ix [Graph::ixpos $beat]
+for {set i 1} {$i < 128} {incr i} {
+  if {[llength $endpitchstrip($i)] == 2 } {
+	  set iy [Graph::iypos $i]
+	  set end [lindex $endpitchstrip($i) 0]
+	  set c [lindex $endpitchstrip($i) 1]
+          set p $xchannel2program($c)
+          set g [lindex $progmapper $p]
+          set kolor [lindex $groupcolors $g]
+	  set ix2 [expr [Graph::ixpos $end] +3]
+          $pgraph create line $ix $iy  $ix2 $iy\
+	      -fill $kolor -width $thickness -tag c$c
+          }
+  }
+reset_endpitchstrip
+}
+
+proc pgram_limits {can} {
+# limits of selected region in midistructure
+    global beats_per_pixel
+    set co [$can coords mark]
+    #   is there a marked region of reasonable extent ?
+    set extent [expr [lindex $co 2] - [lindex $co 0]]
+    if {$extent > 5} {
+        set xleft [expr ([lindex $co 0]-42)*$beats_per_pixel]
+        set xright [expr ([lindex $co 2]-42)*$beats_per_pixel]
+	set xleft [expr floor($xleft)]
+	set xright [expr floor($xright)]
+        #puts "midistruct_limits: $xleft $xright beats"
+	return "$xleft $xright"
+    } else {
+        #puts "midistruct_limits: none"
+        return none}
+}
+
+proc pgram_abc {} {
+global midi
+global midichannels
+global exec_out
+set exec_out ""
+set limits  [pgram_limits .pgram.c]
+set options ""
+if {[llength $limits] > 1} {
+  set fbeat [lindex $limits 0]
+  set tbeat [lindex $limits 1]
+  append option " -frombeat $fbeat -tobeat $tbeat "
+  } 
+  set trkchn ""
+  for {set i 1} {$i < 17} {incr i} {
+     if {$midichannels($i)} {append trkchn "$i,"}
+     }
+  if {[string length $trkchn] > 0} {
+         append option "-chns $trkchn"}
+  set cmd "exec [list $midi(path_midicopy)]  $option"
+  lappend cmd  $midi(midifilein) tmp.mid
+  catch {eval $cmd} miditime
+  append exec_out "$cmd\n\$miditime"
+
+  set title [file root [file tail $midi(midifilein)]]
+  set options ""
+  if {$midi(midirest) > 0} {set options [concat $options "-sr $midi(midirest)"]}
+  set cmd "exec [list $midi(path_midi2abc)] tmp.mid $options -noly -title [list $title]" 
+  catch {eval $cmd} result
+  append exec_out "\n$cmd"
+  edit_abc_output $result
+}
+
+proc pgram_play {} {
+global midi
+global midichannels
+global exec_out
+set exec_out ""
+set limits  [pgram_limits .pgram.c]
+set options ""
+if {[llength $limits] > 1} {
+  set fbeat [lindex $limits 0]
+  set tbeat [lindex $limits 1]
+  append options " -frombeat $fbeat -tobeat $tbeat "
+  } 
+  set trkchn ""
+  for {set i 1} {$i < 17} {incr i} {
+     if {$midichannels($i)} {append trkchn "$i,"}
+     }
+  if {[string length $trkchn] > 0} {
+         append options "-chns $trkchn"}
+  set cmd "exec [list $midi(path_midicopy)]  $options"
+  lappend cmd  $midi(midifilein) tmp.mid
+  catch {eval $cmd} miditime
+  append exec_out "$cmd\n\$miditime"
+
+  play_midi_file tmp.mid 
+}
+
                
 
 proc get_geometry_of_all_toplevels {} {
@@ -25562,7 +26055,7 @@ proc get_geometry_of_all_toplevels {} {
                ".durpdf" ".assoc" ".mftext" ".beatgraph" ".chordstats"
                ".drumtool" "cfg.drumtool" "headers" "pitchinterval"
                ".histmatches" ".m2ps" ".live" ".preferred_chords"
-               ".notegram" ".preferences" ".midistructure" }
+               ".notegram" ".preferences" ".midistructure" ".pgram" }
   foreach top $toplevellist {
     if {[winfo exist $top]} {
       set g [wm geometry $top]
