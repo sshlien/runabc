@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.247
-set runabc_date "(September 15 2020 09:15)"
+set runabc_version 2.251
+set runabc_date "(November 08 2020 05:55)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -779,7 +779,7 @@ proc midi_init {} {
     set midi(remote) 1
     set midi(jslib) "./js"
     set midi(outhtml) "tune.html"
-    set midi(webscript) 3
+    set midi(webscript) 2
 
     # window geometry
     set midi(autoposition) 1
@@ -1610,7 +1610,6 @@ menu .abc.functions.midi.type -tearoff 0
 .abc.functions.midi.type add command -label "midi2abc"   -font $df  -command show_midi2abc_page
 .abc.functions.midi.type add command -label "midistructure"   -font $df  -command midi_structure_window
 .abc.functions.midi.type add command -label "pianoroll"   -font $df  -command {piano_window $midi(midifilein)}
-.abc.functions.midi.type add command -label "pianoroll"   -font $df  -command {piano_window $midi(midifilein)}
 .abc.functions.midi.type add command -label "drum events" -font $df -command drumroll_window
 .abc.functions.midi.type add command -label "mftext by beats" -font $df  -command {
    set midi(mftextunits) 2
@@ -2076,7 +2075,6 @@ set html_preamble "<!DOCTYPE HTML>
  switch $midi(webscript) {
      1 {set abcweb abcweb-1.js}
      2 {set abcweb abcweb1-1.js}
-     3 {set abcweb abcweb2-1.js}
      }
 
 set remote_svg_script [make_js_script_list $urlpointer(1) $abcweb]
@@ -2089,24 +2087,13 @@ set preface $html_preamble
     set preface $preface$local_svg_script
     }
 
-
-
-
-
-
 set inhandle [open $abcfile r]
 set wholefile [read $inhandle]
 close $inhandle
 
-
 set outhandle [open $midi(outhtml) w]
 puts $outhandle $preface
-if {$midi(webscript) == 3} {
-  puts $outhandle  "</head>\n<body>\n<script type=\"text/vnd.abc\" class=\"abc\">"
-  } else {
-  puts $outhandle  "</head>\n<body>"
-  }
-
+puts $outhandle  "</head>\n<body>\n<script type=\"text/vnd.abc\" class=\"abc\">"
 
 if {$midi(fmt_chk) && [file exist $midi(ps_fmt_file)]} {
   set inhandle [open $midi(ps_fmt_file)]
@@ -2115,12 +2102,7 @@ if {$midi(fmt_chk) && [file exist $midi(ps_fmt_file)]} {
   puts $outhandle $fmt
   }
 puts $outhandle $wholefile
-   switch $midi(webscript) {
-       1 {puts $outhandle "\n</body>\n</html>\n"}
-       2 {puts $outhandle "\n-->\n</body>\n</html>\n"}
-       3 {puts $outhandle  "</script>\n</body>\n</html>\n"}
-       }
-
+puts $outhandle  "</script>\n</body>\n</html>\n"
 close $outhandle
 }
 
@@ -6711,23 +6693,23 @@ copy of the javascript library, then you can tick the 'local javascript\
 library' radio button, and then the browser will look for the\
 javascript code on your system. The 'path to local javascript'\
 adjoining entry box indicates where the library is found.\
+The full path name starting from the C: drive should be given.\
 Alternatively, you can tick the 'remote javascript' radio button\
-and a link to Jef Moine's internet site will indicate the location\
-of the library.\n
-You can specify the name and location of the output html file.\
+and the javascript library will be obtained from Jef Moine's internet site.\
+You should specify the name and location of the output html file.\
+It is important that the full path name starting from C: be indicated.\
 Clicking the 'html src' button will display the contents of this\
 file in a text editor of your choice. This file is created\
 or updated when you click the print button.\n
-Jef's library includes three different methods for rendering the\
-embedded abc notation. They are called abcweb-1, abcweb1-1,\
-and abcweb2-1. Abcweb-1 displays all the abc notation, which can\
+Jef's library includes two different methods for rendering the\
+embedded abc notation. They are called abcweb-1 and abcweb1-1.\
+Abcweb-1 displays all the abc notation, which can\
 include several individual tunes, in one page. Abcweb1-1 contains\
 an interface for selecting a particular tune in the collection.\
-For both of these interfaces, the abc notation must be enclosed\
-in a html comment section opening with <!-- and ending with -->.\
+For both of these interfaces, is enclosed\
+inside a special text/vnd.abc script block.\
 This is one solution for handling broken rhythm notation, which\
-would otherwise confuse the browser. Abcweb2-1 assumes that the\
-abc notation is inside a special text/vnd.abc script block.\n
+would otherwise confuse the browser.\ 
 This configuration page allows you to specify a particular\
 format file which will provide various layout information.\
 If the entry box is blank, then no format file is given.\
@@ -6765,8 +6747,6 @@ radiobutton $w.web1 -text "abcweb-1" -variable midi(webscript)\
    -value 1 -font $df
 radiobutton $w.web2 -text "abcweb1-1" -variable midi(webscript)\
    -value 2 -font $df
-radiobutton $w.web3 -text "abcweb2-1" -variable midi(webscript)\
-   -value 3 -font $df
 
 
 
@@ -6774,14 +6754,13 @@ radiobutton $w.web3 -text "abcweb2-1" -variable midi(webscript)\
 #text $w.text -width 50 -height 10
 
 
-grid $w.formchk $w.midichk
-grid $w.web1 $w.web2 
-grid $w.web3 
-grid $w.remote $w.local
-grid $w.htmlsrc
-grid $w.javascriptlib $w.jslib 
-grid $w.outbut $w.outhtml 
-grid $w.formlab $w.forment 
+grid $w.formchk $w.midichk -sticky w
+grid $w.web1 $w.web2  -sticky w
+grid $w.remote $w.local -sticky w
+grid $w.htmlsrc -sticky w
+grid $w.javascriptlib $w.jslib -sticky w
+grid $w.outbut $w.outhtml -sticky w 
+grid $w.formlab $w.forment  -sticky w
 #not used
 #grid $w.text -columnspan 2 -sticky w
 
