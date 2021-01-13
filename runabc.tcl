@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.251
-set runabc_date "(November 08 2020 05:55)"
+set runabc_version 2.252
+set runabc_date "(January 13 2021 08:30)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -18953,6 +18953,8 @@ proc extract_tune_info {} {
     #set tunestring $line\n
     set tunestring "X: $sel\n"
     while {[gets $handle line]> 0} {
+        if {[string first "X:" $line] == 0} break
+        if {!$midi(blank_lines) && [string length $line] < 1} break 
         set tunestring $tunestring$line\n
     }
     close $handle
