@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.252
-set runabc_date "(January 13 2021 08:30)"
+set runabc_version 2.253
+set runabc_date "(January 17 2021 12:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -22915,7 +22915,8 @@ proc extract_notes_from_ps {} {
 
         # for abcm2ps versions 8.9.*
         set match [scan $line "gsave %f dup scale %f %f T" xscale tx ty]
-        if {$match == 3} {
+        # ignore if grestore present 2021-01-17 -- to handle text in Q:
+        if {$match == 3 && [string first "grestore" $line] < 0} {
             #puts $line
             set ytrans [expr $ty*$xscale - $pageheight]
             set psscale $xscale
@@ -23045,6 +23046,7 @@ proc show_objects {page} {
 # for debugging
 global objectlist psscale
 .live.main.music.c delete -tag hot
+#puts "show_objects for page $page:\n$objectlist($page)"
 foreach obj $objectlist($page) {
    set ix1 [lindex $obj 0]
    set iy1 [lindex $obj 1]
