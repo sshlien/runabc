@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.253
-set runabc_date "(January 17 2021 12:40)"
+set runabc_version 2.254
+set runabc_date "(January 18 2021 14:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -870,6 +870,7 @@ proc midi_init {} {
     set midi(ratio_n) 2
     set midi(drummap) 1
     set midi(nofermata) 0
+    set midi(nograce) 0
     set midi(chordvol) 127
     set midi(bassvol) 127
     set midi(transpose) 0
@@ -1952,6 +1953,7 @@ proc play_action {} {
     if {$midi(tuning) != 440} {append cmd " -TT $midi(tuning)"}
     if {$midi(nofermata) == 1} {append cmd " -NFER"}
     if {$midi(nogchords) == 1} {append cmd " -NGUI"}
+    if {$midi(nograce) == 1} {append cmd " -NGRA"}
     catch {eval $cmd} exec_out
     if {[string first "no such" $exec_out] >= 0} {
 	    abcmidi_no_such_error $midi(path_abc2midi)} else {
@@ -6147,7 +6149,7 @@ proc show_midi_page {subsection} {
         switch -- $subsection {
             1 { set w_list {tempo transpose tuning} }
             2 { set w_list {melody double chord bass beat over gchord drum drone msg} }
-            8 { set w_list {player grace divider broken barfly drummethod fermata reset} }
+            8 { set w_list {player grace divider broken barfly drummethod fermata nograce reset} }
             13 { set w_list {drone}}
             default { set w_list "" }
         }
@@ -6167,7 +6169,7 @@ proc remove_midi_page {} {
     switch -- $midi_subsection {
         1 { set w_list {tempo transpose tuning} }
         2 { set w_list {melody double chord bass beat over gchord drum drumpat drone msg}}
-        8 { set w_list {player grace divider barfly broken reset drummethod fermata} }
+        8 { set w_list {player grace divider barfly broken reset drummethod fermata nograce} }
         13 { set w_list {drone}}
         default { set w_list "" }
     }
@@ -7323,6 +7325,7 @@ bind .abc.midi1.beat.b   <Return> {focus .abc.midi1.beat.lab1}
 bind .abc.midi1.beat.c   <Return> {focus .abc.midi1.beat.lab1}
 
 checkbutton .abc.midi1.fermata -text "ignore fermatas" -font $df -variable midi(nofermata)
+checkbutton .abc.midi1.nograce -text "ignore grace notes" -font $df -variable midi(nograce)
 
 set w .abc.midi1.grace
 frame $w
@@ -7406,6 +7409,7 @@ proc reset_advanced_midi {} {
     set midi(beat_n) 4
     set midi(gracedivider) 4
     set midi(nofermata) 0
+    set midi(nograce) 0
     set midi(ratio_n) 2
     set midi(ratio_m) 1
 }
@@ -19093,6 +19097,7 @@ proc play_section {} {
     if {$midi(barflymode)} {append cmd " -BF $midi(stressmodel)"}
     if {$midi(tuning) != 440} {append cmd " -TT $midi(tuning)"}
     if {$midi(nofermata) == 1} {append cmd " -NFER"}
+    if {$midi(nograce) == 1} {append cmd " -NGRA"}
     catch {eval $cmd} exec_out
     set exec_out $cmd\n\n$exec_out
     set files X$midiname.mid
