@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.256
-set runabc_date "(January 22 2021 13:55)"
+set runabc_version 2.257
+set runabc_date "(January 29 2021 18:45)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -5976,7 +5976,7 @@ proc make_summary_toplevel {} {
     set p .summary
     toplevel $p
     position_window ".summary"
-    text $p.t -height 10 -width 70 -wrap char -bg #f4ece0 \
+    text $p.t -height 14 -width 70 -wrap char -bg #f4ece0 \
             -font $df -yscrollcommand ".summary.ysbar set"
     scrollbar $p.ysbar -orient vertical -command {.summary.t yview}
     pack $p.ysbar -side right -fill y -in $p
@@ -10796,13 +10796,13 @@ set hlp_grouper \
 bind . <Alt-s> {runabc_diagnostic}
 bind . <Alt-S> {runabc_diagnostic}
 
-set abcmidilist {path_abc2midi 4.37\
-            path_abc2abc 2.04\
-            path_yaps 1.74\
-            path_midi2abc 3.42\
-            path_midicopy 1.35\
-            path_abcmatch 1.72\
-            path_abcm2ps 8.14.9}
+set abcmidilist {path_abc2midi 4.48\
+            path_abc2abc 2.13\
+            path_yaps 1.86\
+            path_midi2abc 3.47\
+            path_midicopy 1.37\
+            path_abcmatch 1.77\
+            path_abcm2ps 8.14.11}
 global abcmidilist
 
 proc runabc_diagnostic {} {
