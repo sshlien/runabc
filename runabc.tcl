@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.257
-set runabc_date "(January 29 2021 18:45)"
+set runabc_version 2.258
+set runabc_date "(January 31 2021 18:45)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2955,6 +2955,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
     #copies or appends all selected tunes to an output file
     global fileseek  exec_out
     global midi
+    global ps_header
     for {set i 0} {$i < 17} {incr i} {
       if {$midi(midi_chk)} {
        set addmidi($i) 1
@@ -2971,6 +2972,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
         seek $inhandle $loc
         set line [find_X_code $inhandle]
         puts $outhandle $line
+        if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
         incr n
         while {[string length $line] > 0 } {
             if {$midi(blank_lines)} {
