@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.258
-set runabc_date "(January 31 2021 18:45)"
+set runabc_version 2.260
+set runabc_date "(February 09 2021 15:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1523,6 +1523,7 @@ $w.type add command -label "pitch interval histogram" -command {note_interval_hi
 $w.type add command -label "save midi file(s)" -command midisave -font $df
 $w.type add command -label "save sheet music as ps" -command postscriptsave -font $df
 $w.type add command -label "save sheet music as pdf" -command pdfsave -font $df
+$w.type add command -label "split abc file" -command split_abc_tool  -font $df
 $w.type add command -label "copy incipits" -command show_incipits_page -font $df
 $w.type add cascade -label "copy to file" -menu $w.type.copy -font $df
 menu $w.type.copy -tearoff 0
@@ -1538,7 +1539,6 @@ $w.type.copy add command -label "append and renumber" -font $df \
         -command {start_copy_selected_files a 1}
 $w.type.copy add command -label "merge abc files" -font $df \
         -command {merge_abc_files}
-$w.type.copy add command -label "split abc file" -command split_abc_file  -font $df
 $w.type.copy add command -label "combine parts" -font $df \
         -command {combine_parts}
 $w.type.copy add command -label help -font $df \
@@ -1564,6 +1564,9 @@ between adjacent notes.\n\n\
 save midi files(s): creates and saves the midi files of the selected tunes.\n\n\
 save sheet music as ps: creates and saves the sheet music as a PostScript file.\n\n\
 save sheet music as pdf: creates and saves the sheet music as a pdf file.\n\n\
+'split abc file' splits a multitune\ abc file into separate files each\
+containing one tune and puts the files into a selected directory.\
+The file names can be derived from the X reference number or the title.\n\n\
 copy incipits: creates a new abc file with only the first n bars of each\
 tune.\n\n\
 copy: see its separate help file in the cascaded menu.\n
@@ -1639,6 +1642,7 @@ $w.type add command  -label help -command {show_message_page $hlp_playopt word} 
 set w .abc.functions.yaps
 menubutton $w  -text "yaps opts" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
+$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
 $w.type add command -label options -command {show_ps_page yaps} -font $df
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
@@ -1653,6 +1657,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 set w .abc.functions.abc2svg
 menubutton $w  -text "abc2svg" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
+$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
 $w.type add command -label "create format file" -font $df \
   -command setup_m2ps
 $w.type add command -label options -command {show_ps_page abc2svg} -font $df
@@ -1668,6 +1673,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 set w .abc.functions.abc2ps
 menubutton $w   -text "abc2ps options" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
+$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
 $w.type add command -label "boolean command options"  -command {show_ps_page m2psbool} -font $df
 $w.type add command -label "numeric command options" -command {show_ps_page m2psfloat}  -font $df
 $w.type add command -label "create format data" -font $df \
@@ -1687,6 +1693,7 @@ $w.type.selector add radiobutton -label abc2svg -variable midi(ps_creator) \
 set w .abc.functions.otherps
 menubutton $w   -text "other ps" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
+$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
 $w.type add  radiobutton -label "options" -font $df  -command show_other_ps
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
@@ -2707,6 +2714,10 @@ proc title_selected {} {
     return $index
 }
 
+proc select_all_titles {} {
+return [.abc.titles.t children {}]
+}
+
 proc update_wholefile_and_toc {} {
      global midi
      update_wholefile "no"
@@ -3248,45 +3259,71 @@ proc extract_title_of_tune {tune abcfile} {
 }
 
 proc split_abc_file {} {
-    #separates selected tunes and puts them in separate
-    #files in the folder with the filename called $midi(abc_open)
-    global midi fileseek
-    set abcfile $midi(abc_open)
-    set filedir [file rootname $abcfile]
-    set pat \[\"\/\\\*:\;\?\.\^\]
-    set numpat {[0-9]+}
-    set sel [title_selected]
-    file mkdir $filedir
-    set edithandle [open $abcfile r]
-    fconfigure $edithandle -encoding $midi(encoder)
-    foreach i $sel {
-        set loc $fileseek($i)
-        seek $edithandle $loc
-        set title [get_title $edithandle]
-        set title [string trimleft $title]
-        regsub -all $pat $title "" result
-        set title [string map {\040 _ \\ ""} $result]
-        set title [string trimright $title]
-        seek $edithandle $loc
-        set line [find_X_code $edithandle]
-        regexp $numpat $line  number
-        if {[file exist $filedir/$title.abc]} {set title $title-$number}
-        set outhandle [open [file join  $filedir $title.abc ] w]
-        puts $outhandle $line
-        while {[string length $line] > 0 } {
-            if {$midi(blank_lines)} {
-                set line  [get_nonblank_line $edithandle]} else {
-                set line  [get_next_line $edithandle]}
-            if {[string index $line 0] == "X"} break;
-            puts $outhandle $line
-        }
-        puts $outhandle ""
-        close $outhandle
-    }
-    close $edithandle
-    set acknowledge "[llength $sel] files created in the folder $filedir"
-    messages $acknowledge
+  global midi
+  set numpat {[0-9]+}
+  set dirname [tk_chooseDirectory]
+  puts $dirname
+  set titlehandle [open $midi(abc_open) r]
+  set filecontents ""
+  set filename ""
+  set n 0
+  while {[gets $titlehandle line] >= 0} {
+        if {[string index $line 0] == "X"} {
+            regexp $numpat $line number
+            if {$number != 0} {set number [string trimleft $number 0]}
+
+            if {[string length $filename] > 1} {
+               set dup [output_abc_file $filepath $filecontents]
+               incr n
+               if {$dup == 1} {return}
+            } 
+               
+            set filecontents ""
+            }
+        if {[string index $line 0] == "T"} {
+           set title [string range $line 2 end]
+           set title [string trimleft $title]
+           set title [string map {" " _ , _ ? _ : _ ; _ > _ < _ = _} $title]
+            if {$midi(name)} {
+              set filename $title.abc
+              } else {
+              set filename [format "X%04d.abc" $number]
+              }
+          set filepath $dirname/$filename
+          }
+          set filecontents [append filecontents "$line\n"]
+   }
+   close $titlehandle
+   set acknowledge "$n files created in the folder $dirname"
+   messages $acknowledge
 }
+
+proc output_abc_file {filepath filecontents} {
+  if {[file exist $filepath]} {
+    messages "file $filepath already exists...aborting"
+    return 1
+    } else {
+  set outhandle [open $filepath w]
+  puts $outhandle $filecontents
+  close $outhandle
+  return 0
+  }
+}
+
+
+
+proc split_abc_tool {} {
+global midi
+global sel
+global df
+set sel [select_all_titles]
+#puts "sel = $sel"
+set p .abc.splittool
+pack $p
+set n [llength $sel]
+$p.1 configure -text "You are creating $n abc files" -font $df
+}
+
 
 
 proc edit_new_tune {} {
@@ -3686,12 +3723,6 @@ set hlp_copy "Copy to file menu\n\nThe function 'copy' will copy the\
         same but renumber the selected tunes.\
         \n\n'Merge abc files' combines all the abc files in\
         a folder and saves it to a separate file.\
-        \n\n'Split abc file' splits a multitune\
-        abc file into separate files each containing one tune and puts the files\
-        into a directory with the same name as the input file (without the abc\
-        extension). You should select all the tunes that you want to extract\
-        in the TOC before using this function. To select all tunes below the
-selected tune hold the shift button while clicking on that tune.
         \n\n'Combine parts' function is\
         specificly designed to reformat Laura Conrads renaissance music in\
         her allparts.abc files. Each part is written as a separate tune rather\
@@ -6626,6 +6657,21 @@ grid $p.t $p.te $p.char
 grid $p.x $p.xr
 grid $p.co $p.ca $p.he
 
+
+#split abc file into tunes in separate files
+set p .abc.splittool
+frame $p
+label $p.1
+label $p.2 -text "You will need to specify a directory" -font $df
+radiobutton $p.t -text "get filename from title" -variable midi(name) -value 1 -font $df
+radiobutton $p.x -text "get filename from xref" -variable midi(name) -value 0 -font $df
+button $p.co -text continue -font $df -command {split_abc_file
+                                                pack forget .abc.splittool}
+button $p.ca -text cancel -font $df -command {pack forget .abc.splittool}
+grid $p.1 -sticky w
+grid $p.2 -sticky w
+grid $p.t $p.x  -sticky w
+grid $p.co $p.ca  -sticky w
 
 
 
