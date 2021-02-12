@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.260
-set runabc_date "(February 09 2021 15:00)"
+set runabc_version 2.261
+set runabc_date "(February 11 2021 20:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -22898,9 +22898,9 @@ proc update_musicscore {tunecontent} {
     puts $out_fd $atunecontent
     close $out_fd
 
-    set exec_out "exec [list $midi(path_abcm2ps)] X.tmp -A -s $midi(livescale)   << ..."
+    set exec_out "exec [list $midi(path_abcm2ps)] X.tmp -A -j 2 -s $midi(livescale)   << ..."
     #catch {exec  [list $midi(path_abcm2ps)] X.tmp -A -s $midi(livescale)  << $atunecontent} result
-    set cmd "exec  [list $midi(path_abcm2ps)] X.tmp -A -s $midi(livescale)  << $atunecontent" 
+    set cmd "exec  [list $midi(path_abcm2ps)] X.tmp -A -j 2 -s $midi(livescale)  << $atunecontent" 
     catch {eval $cmd} result
     append exec_out "\n$result"
     set cmd "file delete [glob -nocomplain *.pgm]"
