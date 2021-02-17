@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.261
-set runabc_date "(February 11 2021 20:00)"
+set runabc_version 2.262
+set runabc_date "(February 17 2021 11:45)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1766,7 +1766,7 @@ pack .abc.functions -side top
 set w .abc.titles.sliders
 frame $w
 label $w.tempolab -text bpm -width 3 -font $df
-scale $w.tempo -from 0 -to 320 -length 180  \
+scale $w.tempo -from 0 -to 480 -length 240 \
         -width 10 -orient horizontal  -showvalue true -troughcolor darkred\
         -variable midi(tempo)   -font $df
 pack $w.tempo $w.tempolab  -side left -fill y
@@ -6918,20 +6918,20 @@ frame $w
 
 frame $w.tempo
 label $w.tempo.0 -text tempo -width 8 -font $df
-scale $w.tempo.1 -from 0 -to 320 -length 240  \
+scale $w.tempo.1 -from 0 -to 480 -length 300  \
         -width 10 -orient horizontal  -showvalue true \
         -variable midi(tempo)   -font $df
 pack $w.tempo.0 $w.tempo.1  -side left
 
 frame $w.transpose
 label $w.transpose.0 -text transpose -font $df
-scale $w.transpose.1 -from -24 -to 24 -length 240 -width 10 \
+scale $w.transpose.1 -from -24 -to 24 -length 300 -width 10 \
         -orient horizontal  -showvalue true -variable midi(transpose)   -font $df
 pack $w.transpose.0 $w.transpose.1 -side left
 
 frame $w.tuning
 label $w.tuning.0 -text tuning -width 8 -font $df
-scale $w.tuning.1 -from 416 -to 466 -length 240  \
+scale $w.tuning.1 -from 416 -to 466 -length 300  \
         -width 10 -orient horizontal  -showvalue true \
         -variable midi(tuning)   -font $df
 pack $w.tuning.0 $w.tuning.1  -side left
