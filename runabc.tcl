@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.262
-set runabc_date "(February 17 2021 11:45)"
+set runabc_version 2.264
+set runabc_date "(February 18 2021 13:25)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2039,7 +2039,7 @@ proc display_action {{svgviewer 1}} {
     global ps_numb_start
     set console_clock [clock seconds]
     set sel [title_selected]
-    if {$midi(ps_creator)=="abc2svg" && $midi(midi_chk)} {
+    if {$midi(ps_creator)=="abc2svg" } {
        tune2Xtmp_for_abc2svg $sel X.tmp 
     } else {
        copy_selected_tunes_for_display $sel X.tmp
@@ -2984,17 +2984,23 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
         set line [find_X_code $inhandle]
         puts $outhandle $line
         if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
-        incr n
+        if {$midi(ignoreQ)} {
+           puts $outhandle "Q: 1/4 = $midi(tempo)"
+           }
+        if {$midi(nogchords) == 0} {
+           puts $outhandle "%%MIDI gchordon"
+           }
         while {[string length $line] > 0 } {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $inhandle]} else {
                 set line  [get_next_line $inhandle]
 	        }
             if {[string index $line 0] == "X"} break;
+            if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
             puts $outhandle $line
 	    set loc [string first "V:" $line]
 # The procedure does not handle V: enclosed in brackets
-	    if {$loc ==0} {
+	    if {$loc ==0 && $midi(midi_chk)} {
               incr loc 2
 	      set payload [string range $line $loc end]
 	      set payload [string trimleft $payload]
