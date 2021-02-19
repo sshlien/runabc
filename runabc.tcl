@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.264
-set runabc_date "(February 18 2021 13:25)"
+set runabc_version 2.265
+set runabc_date "(February 19 2021 11:25)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -6781,6 +6781,8 @@ set w .abc.abc2svg
 frame $w
 checkbutton $w.formchk -variable midi(fmt_chk) -text "include ps header" -font $df
 checkbutton $w.midichk -variable midi(midi_chk) -text "include midi settings" -font $df
+checkbutton $w.replaceQ -variable midi(ignoreQ) -text "override tempo" -font $df
+checkbutton $w.noaccomp -variable midi(nogchords) -text "no accompaniment" -font $df
 button $w.formlab -text "format file" -font $df\
   -command select_format_file -width 20
 entry $w.forment -textvariable midi(ps_fmt_file) -width 36 -font $df
@@ -6788,7 +6790,7 @@ radiobutton $w.remote -text "remote javascript" -variable midi(remote)\
    -value 1 -font $df
 radiobutton $w.local -text "local javascript lib" -variable midi(remote)\
    -value 0 -font $df 
-button $w.htmlsrc -text "html src" -font $df -command view_html_src -width 20
+button $w.htmlsrc -text "edit last html" -font $df -command view_html_src -width 20
 
 button $w.javascriptlib -text "path to local javascript" -command setpathjslib\
 -font $df -width 20
@@ -6815,6 +6817,7 @@ radiobutton $w.web2 -text "abcweb1-1" -variable midi(webscript)\
 
 
 grid $w.formchk $w.midichk -sticky w
+grid $w.replaceQ $w.noaccomp -sticky w
 grid $w.web1 $w.web2  -sticky w
 grid $w.remote $w.local -sticky w
 grid $w.htmlsrc -sticky w
@@ -6950,7 +6953,7 @@ checkbutton $w.over.1 -text "override tempo " \
 checkbutton $w.over.2 -text "override  midi " \
         -variable midi(ignoremidi) -font $df
 
-checkbutton $w.over.3 -text "no gchords" \
+checkbutton $w.over.3 -text "no accompaniment" \
         -variable midi(nogchords) -font $df
 
 button $w.over.random -text "random" -font $df -command random_arrangement
