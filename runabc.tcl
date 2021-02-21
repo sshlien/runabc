@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.265
-set runabc_date "(February 19 2021 11:25)"
+set runabc_version 2.267
+set runabc_date "(February 22 2021 12:55)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -879,6 +879,7 @@ proc midi_init {} {
     set midi(tuning) 440
     set midi(gracedivider) 4
     set midi(tempo) 120
+    set midi(beatsize) 1/4
     set midi(drone) 0
     set midi(tenordrone) 80
     set midi(bassdrone) 80
@@ -1630,7 +1631,7 @@ set w .abc.functions.playopt
 menubutton $w -text "play options" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
 $w.type add checkbutton -label "use midi header" -font $df -variable midi(use_midi_header)
-$w.type add command  -label tempo/pitch  -command {show_midi_page 1} -font $df
+$w.type add command  -label transposition/tuning  -command {show_midi_page 1} -font $df
 $w.type add command  -label arrangement  -command {show_midi_page 2} -font $df
 $w.type add command  -label "advanced settings" -command {show_midi_page 8} -font $df
 $w.type add command  -label  drumkit     -command drum_editor -font $df
@@ -1763,13 +1764,18 @@ pack .abc.functions.quit -side left -fill y
 
 pack .abc.functions -side top
 
+set beatlist {1/4 1/2 3/8 1/8}
 set w .abc.titles.sliders
 frame $w
-label $w.tempolab -text bpm -width 3 -font $df
+label $w.tempolab -text "tempo" -font $df
+label $w.tempolab1 -text " for "  -width 5 -font $df
+label $w.tempolab2 -text " note "  -width 5 -font $df
 scale $w.tempo -from 0 -to 480 -length 240 \
         -width 10 -orient horizontal  -showvalue true -troughcolor darkred\
         -variable midi(tempo)   -font $df
-pack $w.tempo $w.tempolab  -side left -fill y
+ttk::combobox $w.beatsize -width 4 -height 7 -textvariable midi(beatsize)\
+        -font $df -values $beatlist
+pack $w.tempolab $w.tempo $w.tempolab1 $w.beatsize $w.tempolab2  -side left -fill y
 pack $w -side top
 
 frame .abc.titles.notes -borderwidth 3
@@ -2175,41 +2181,6 @@ proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
         catch {eval $cmd} exec_out
         set exec_abcmps "$cmd\n\n$exec_out"
         
-# abc2ps is being deprecated 2020-06-01
-    } elseif  {$midi(ps_creator) == "abc2ps"} {
-        set abc2psopt ""
-        switch -- $midi(ps_fmt_flag) {
-            0  {append abc2psopt " -s $midi(ps_scale) \
-                        -a $midi(ps_shrink) -m $midi(ps_lmargin) \
-                        -w $midi(ps_width)  \
-                        -d $midi(ps_staffsep)"}
-            1  {append abc2psopt " -p"}
-            2  {append abc2psopt " -P"}
-            3  {append abc2psopt " -F [list $midi(ps_fmt_file)]"}
-        }
-        
-        if {$midi(ps_c)}     {append abc2psopt " -c"}
-        if {$midi(ps_bxref)} {append abc2psopt " -x"}
-        if {$midi(ps_bhist)} {append abc2psopt " -n"}
-        if {$midi(ps_bbar)}  {append abc2psopt " -k 1"}
-        if {$midi(ps_bnumb)} {append abc2psopt " -N"}
-        if {$midi(ps_bppage)} {append abc2psopt " -1"}
-        if {$midi(ps_fmt_landscape)} {append abc2psopt " -l"}
-        set abc2psopt [concat $abc2psopt " -g $midi(ps_glue)"]
-        if {[string length $midi(ps_maxvent)] > 0} {
-            set abc2psopt [concat $abc2psopt -maxv $midi(ps_maxvent)]}
-        if {[string length $midi(ps_maxsent)] > 0} {
-            set abc2psopt [concat $abc2psopt -maxs $midi(ps_maxsent)]}
-        if {$midi(bpsvoice)} {append $abc2psopt " -V $midi(psvoice)"}
-        
-        set cmd "exec [list $midi(path_abc2ps)] \
-                [list $abcfile] $abc2psopt -o"
-        catch {eval $cmd} exec_out
-        set exec_out "$cmd\n\n$exec_out"
-        set exec_abcmps "$cmd\n\n$exec_out"
-        
-        
-        
     } elseif {$midi(ps_creator) == "abcm2ps"} {
         set abc2psopt ""
         if  {$midi(ps_fmt_flag)} {
@@ -2395,13 +2366,81 @@ proc midisave_tool {} {
     pack $p
 }
 
+
+proc tunes2Out.ps {abcfile} {
+# if nodisplay == 1 only Out.ps is created
+    global midi
+    global yaps_ptsize exec_out
+    global ps_numb_start
+    global exec_out
+    global runabcpath
+    
+    if {$midi(ps_creator) == "yaps"} {
+        # YAPS
+        set M $midi(yaps_lmargin)x$midi(yaps_tmargin)
+        set yapsopt ""
+        append yapsopt " -N -o Out.ps \
+                -P [lindex $yaps_ptsize $midi(papersize)] -s $midi(yaps_scale) -M $M"
+        if {$midi(yaps_voice)} {append yapsopt " -V"}
+        if {$midi(yapsx)} {append yapsopt " -x"}
+        if {$midi(yaps_landscape)} {append yapsopt " -l"}
+        if {$midi(yaps_bbar)} {append yapsopt " -k"}
+        set cmd "exec [list $midi(path_yaps)] [list $abcfile] $yapsopt"
+        catch {eval $cmd} exec_out
+        set exec_abcmps "$cmd\n\n$exec_out"
+        if {[string first "no such" $exec_out] >= 0} {abcmidi_no_such_error $midi(path_yaps)}
+        
+    } elseif {$midi(ps_creator) == "other"} {
+        set cmd "exec [list $midi(path_otherps)] [list $abcfile] $midi(otherps)"
+        catch {eval $cmd} exec_out
+        set exec_abcmps "$cmd\n\n$exec_out"
+        
+    } elseif {$midi(ps_creator) == "abcm2ps" ||
+              $midi(ps_creator) == "abc2svg"} {
+        set abc2psopt ""
+        if  {$midi(ps_fmt_flag)} {
+              append abc2psopt " -F [list $midi(ps_fmt_file)]"
+            } else {
+              append abc2psopt " -s $midi(ps_scale) \
+                        -a $midi(ps_shrink) -m $midi(ps_lmargin) \
+                        -w $midi(ps_width)  \
+                        -d $midi(ps_staffsep)"
+                         }
+        if {$midi(ps_bxref)} {append abc2psopt " -x"}
+        if {$midi(ps_bppage)} {append abc2psopt " -1"}
+        if {$midi(ps_bbar)}  {append abc2psopt " -j 1"}
+        if {$ps_numb_start != 0} {append abc2psopt " -b $ps_numb_start"}
+        if {$midi(ps_c)}     {append abc2psopt " -c"}
+        if {$midi(ps_fmt_landscape)} {append abc2psopt " -l"}
+        if {$midi(ps_nolyric)} {
+            set abc2psopt [concat $abc2psopt -M]}
+        if {$midi(ps_noslur)} {
+            set abc2psopt [concat $abc2psopt -G]}
+        if {$midi(ps_flat)} {
+            set abc2psopt [concat $abc2psopt -f]}
+        if { [string length $midi(ps_other_options)] > 1} {
+            set abc2psopt [concat $abc2psopt $midi(ps_other_options)]}
+        if {$midi(ps_buffsize) != 0} {
+            set abc2psopt [concat $abc2psopt "-k $midi(ps_buffsize)"]}
+        
+        set cmd "exec [list $midi(path_abcm2ps)] \
+                [list $abcfile] $abc2psopt"
+        
+        catch {eval $cmd} exec_out
+        set exec_abcmps "$cmd\n\n$exec_out"
+    }
+    
+
+   set exec_out "$exec_abcmps\n$cmd\n\n$exec_out"
+}
+
 proc postscriptsave {} {
    global ps_numb_start
    set types {{{PostScript files} {*.ps}}}
    set ps_numb_start 0
    set sel [title_selected]
    copy_selected_tunes_for_display $sel X.tmp
-   display_tunes X.tmp 0 1
+   tunes2Out.ps X.tmp
    set filename [tk_getSaveFile -filetypes $types]
    file copy Out.ps $filename
 }
@@ -2414,7 +2453,7 @@ proc pdfsave {} {
    set ps_numb_start 0
    set sel [title_selected]
    copy_selected_tunes_for_display $sel X.tmp
-   display_tunes X.tmp 0 1
+   tunes2Out.ps X.tmp 
    set filename [tk_getSaveFile -filetypes $types]
    set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=$filename Out.ps "
    catch {eval $cmd} result2
@@ -2870,7 +2909,7 @@ proc tune2Xtmp {tunes abcfile} {
             scan $line "X:%d" track
             lappend outlist $track
             if {!$midi(use_midi_header)} {write_midi_codes $out_fd}
-            puts $out_fd "Q:1/4 = $midi(tempo)"
+            puts $out_fd "Q:$midi(beatsize) = $midi(tempo)"
             set line [get_nonblank_line $inp_fd]
             set body 0
         } else {
@@ -2985,7 +3024,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
         puts $outhandle $line
         if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
         if {$midi(ignoreQ)} {
-           puts $outhandle "Q: 1/4 = $midi(tempo)"
+           puts $outhandle "Q: $midi(beatsize) = $midi(tempo)"
            }
         if {$midi(nogchords) == 0} {
            puts $outhandle "%%MIDI gchordon"
@@ -3079,7 +3118,7 @@ proc create_tmp_voiced_abc {tunes} {
         }
         puts $output_handle X:$xref
         write_midi_codes $output_handle
-        puts $output_handle "Q:1/4=$midi(tempo)"
+        puts $output_handle "Q:$midi(beatsize) = $midi(tempo)"
         set block(0) ""
         set bn 0
         
@@ -6190,7 +6229,7 @@ proc show_midi_page {subsection} {
         set midi_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {tempo transpose tuning} }
+            1 { set w_list {transpose tuning} }
             2 { set w_list {melody double chord bass beat over gchord drum drone msg} }
             8 { set w_list {player grace divider broken barfly drummethod fermata nograce quiet silent reset} }
             13 { set w_list {drone}}
@@ -6210,7 +6249,7 @@ proc remove_midi_page {} {
     global midi_subsection
     
     switch -- $midi_subsection {
-        1 { set w_list {tempo transpose tuning} }
+        1 { set w_list {transpose tuning} }
         2 { set w_list {melody double chord bass beat over gchord drum drumpat drone msg}}
         8 { set w_list {player grace divider barfly broken reset drummethod fermata nograce quiet silent} }
         13 { set w_list {drone}}
@@ -6925,12 +6964,6 @@ proc reset_font {} {
 set w .abc.midi1
 frame $w
 
-frame $w.tempo
-label $w.tempo.0 -text tempo -width 8 -font $df
-scale $w.tempo.1 -from 0 -to 480 -length 300  \
-        -width 10 -orient horizontal  -showvalue true \
-        -variable midi(tempo)   -font $df
-pack $w.tempo.0 $w.tempo.1  -side left
 
 frame $w.transpose
 label $w.transpose.0 -text transpose -font $df
@@ -11238,7 +11271,6 @@ proc extract_action {action} {
     # If condense method is in automatic mode, then select the multirest respresentation
     # which suits the postscript file creator.
     if {$midi(condense_method) == 2 && $midi(condense_on)} {
-        if {$midi(ps_creator) == "abc2ps" } {set type 1}
         if {$midi(ps_creator) == "abcm2ps"} {set type 0}
     }
     
@@ -15998,7 +16030,7 @@ proc play_entire_edit_window {verbatim} {
             regexp {[0-9]+} $value number
             lappend sel $number
             if {!$verbatim} {write_midi_codes $out_fd
-                puts $out_fd "Q:1/4 = $midi(tempo)"
+                puts $out_fd "Q:$midi(beatsize) = $midi(tempo)"
             }
         }
     }
