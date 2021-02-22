@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.267
-set runabc_date "(February 22 2021 12:55)"
+set runabc_version 2.271
+set runabc_date "(February 23 2021 16:25)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1631,6 +1631,7 @@ set w .abc.functions.playopt
 menubutton $w -text "play options" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
 $w.type add checkbutton -label "use midi header" -font $df -variable midi(use_midi_header)
+$w.type add checkbutton -label "override tempo" -font $df -variable midi(ignoreQ) -command disable_enable_tempo_controller
 $w.type add command  -label transposition/tuning  -command {show_midi_page 1} -font $df
 $w.type add command  -label arrangement  -command {show_midi_page 2} -font $df
 $w.type add command  -label "advanced settings" -command {show_midi_page 8} -font $df
@@ -2606,7 +2607,11 @@ proc title_index {abcfile} {
             regexp $pat $line number
             if {$number != 0} {set number [string trimleft $number 0]}
             # 2017-05-05 set filepos
-            set filepos [expr [tell $titlehandle] - [string length $line] -2]
+            # 2021-02-21 changed -2 to -0 below so that extract_tune_info
+            # does not miss the first tune in the file prefixed with
+            # psheader or %%MIDI commands. Otherwise X: command is
+            # encountered in the next line causing a tune break.
+            set filepos [expr [tell $titlehandle] - [string length $line] -0]
 	    if {$filepos < 0} {set filepos 0}
             set srch T
             break
@@ -6820,7 +6825,8 @@ set w .abc.abc2svg
 frame $w
 checkbutton $w.formchk -variable midi(fmt_chk) -text "include ps header" -font $df
 checkbutton $w.midichk -variable midi(midi_chk) -text "include midi settings" -font $df
-checkbutton $w.replaceQ -variable midi(ignoreQ) -text "override tempo" -font $df
+checkbutton $w.replaceQ -variable midi(ignoreQ) -text "override tempo"\
+ -command disable_enable_tempo_controller -font $df
 checkbutton $w.noaccomp -variable midi(nogchords) -text "no accompaniment" -font $df
 button $w.formlab -text "format file" -font $df\
   -command select_format_file -width 20
@@ -6980,8 +6986,8 @@ pack $w.tuning.0 $w.tuning.1  -side left
 
 
 frame $w.over
-checkbutton $w.over.1 -text "override tempo " \
-        -variable midi(ignoreQ)  -font $df
+checkbutton $w.over.1 -text "override tempo " -variable midi(ignoreQ)\
+        -font $df -command disable_enable_tempo_controller
 
 checkbutton $w.over.2 -text "override  midi " \
         -variable midi(ignoremidi) -font $df
@@ -8146,6 +8152,16 @@ set hlp_overview "You are running runabc.tcl version $runabc_version $runabc_dat
         Click the help button for further instructions when \
         one of these property pages is in view.\n\n
 
+The main page (showing the table of contents TOC) of the active\
+        abc file, has a tempo slider allowing you to specify the tempo\
+        in beats per minute. This is only effective when the specific\
+        tune does not have a Q: tempo field or you have set runabc\
+        to override the tempo indication. When the slider is enabled,\
+        the trough is colored red. When it is disabled, the trough is\
+        grey. The size of a beat is specified by the adjoining\
+        combobox at the right. If the input tune does not specify\
+        the beat size then it a beat is assumed to be 1/4 note.\n\n
+
 Other bindings\n\n
 The arrow, page up/down, home, end keys allow you to scroll up and\
         down the table of contents. The <cntl>-slash and <cntl>-backslash allow\
@@ -8160,7 +8176,7 @@ be called. Instead the current displayed music will be replaced in the\
 browser. This applies only to abcm2ps with xhtml or svg output.
 
 
-Seymour.Shlien  fy733@ncf.ca Sept 9 2001."
+Seymour.Shlien  fy733@ncf.ca February 22 2021."
 
 
 set hlp_config_1 "Configuration Property Sheet\n\n\This page is\
@@ -8366,16 +8382,13 @@ If things do not work out the first time, look at the console\
 
 
 
-set hlp_midi1 "Midi tempo/transpose\n\n\
-        Many abc have no tempo indications so that by default\
-        they are played too slowly. Runabc allows you to change the tempo\
-        without forcing you to modify the input abc file. Similarly you can\
-        transpose the music up or down by a specific number of semitones.\
-        This is applied to all MIDI channels.\n\n\
+set hlp_midi1 "Midi transpose/tuning\n\n\
+        You can transpose the music up or down by a specific\
+        number of semitones.  This is applied to all MIDI channels.\n\
         Normally the music is tuned to A = 440. You can shift the tuning\
-        up or down by almost a semitone.\n\n\
-        If you need to override the tempo indications see the Play Options/\
-        arrangement menu item."
+        up or down by almost a semitone.\n\
+        You must set the transposition or tuning prior to playing or\
+        creating the midi file."
 
 set hlp_midi2 "Midi melody bass/chord controls\n\n\
         Abc2midi will provide bass/chordal accompaniment when guitar\
@@ -8387,7 +8400,8 @@ set hlp_midi2 "Midi melody bass/chord controls\n\n\
         which already define the voices with the V: command.\
         To provide more variety you can also transpose by one\
         or more octaves any of these parts.\n\n\
-        There is a separate control page for multivoiced abc files.\n\n
+        There is a separate control page labeled voices on the menu\
+        for multivoiced abc files.\n\n
 The volume level of the melody is controled by 3 numbers\
         which specify the levels of the notes on the on beat, off beat,\
         or neither. These levels should not exceed 127. It is recommended\
@@ -8473,7 +8487,7 @@ set hlp_midi4 " Advanced settings\n\n\
         grace notes.\n\n\
         The number of warnings and error messages returned by abc2midi can be\
         reduced by ticking the checkboxes fewer messages and no messages.\n\n 
-        The default button resets all these values to their initial settings."
+The default button resets all these values to their initial settings."
 
 
 
@@ -19034,6 +19048,18 @@ proc g2v {} {
 
 # Part 37.0 Refactor
 
+proc disable_enable_tempo_controller {} {
+global hasfield
+global midi
+if {[info exist hasfield(Q)] && !$midi(ignoreQ)} {
+  .abc.titles.sliders.tempo configure -state disabled -troughcolor grey
+  .abc.titles.sliders.beatsize configure -state disabled
+  } else {
+  .abc.titles.sliders.tempo configure -state normal -troughcolor darkred
+  .abc.titles.sliders.beatsize configure -state normal
+  }
+}
+
 proc extract_tune_info {} {
     global fileseek
     global midi
@@ -19063,8 +19089,8 @@ proc extract_tune_info {} {
         set tunestring $tunestring$line\n
     }
     close $handle
-    #puts $tunestring
     extract_tune_features $tunestring
+    disable_enable_tempo_controller 
 }
 
 
