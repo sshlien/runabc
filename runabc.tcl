@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.271
-set runabc_date "(February 23 2021 16:25)"
+set runabc_version 2.275
+set runabc_date "(February 23 2021 15:50)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2913,7 +2913,7 @@ proc tune2Xtmp {tunes abcfile} {
 
             scan $line "X:%d" track
             lappend outlist $track
-            if {!$midi(use_midi_header)} {write_midi_codes $out_fd}
+            if {!$midi(use_midi_header) || [string length $midi_header] < 5} {write_midi_codes $out_fd}
             puts $out_fd "Q:$midi(beatsize) = $midi(tempo)"
             set line [get_nonblank_line $inp_fd]
             set body 0
@@ -3011,6 +3011,8 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
     global fileseek  exec_out
     global midi
     global ps_header
+    global hasfield
+
     for {set i 0} {$i < 17} {incr i} {
       if {$midi(midi_chk)} {
        set addmidi($i) 1
@@ -3028,7 +3030,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
         set line [find_X_code $inhandle]
         puts $outhandle $line
         if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
-        if {$midi(ignoreQ)} {
+        if {$midi(ignoreQ) || [info exist hasfield(Q)] == 0} {
            puts $outhandle "Q: $midi(beatsize) = $midi(tempo)"
            }
         if {$midi(nogchords) == 0} {
@@ -3065,6 +3067,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
             if {[string first "K:" $line] && $addmidi(0) == 1} {
                  puts $outhandle "%%MIDI program $midi(program)"
 		 puts $outhandle "%%MIDI control 7 85"
+                 if {$midi(nogchords) == 0} {puts $outhandle "%%MIDI chordprog $midi(chordprog) octave=$midi(chord_octave)"}
 		 set addmidi(0) 0
 	         }
 
