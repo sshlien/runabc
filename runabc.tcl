@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.275
-set runabc_date "(February 23 2021 15:50)"
+set runabc_version 2.276
+set runabc_date "(March 04 2021 07.10)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2607,11 +2607,7 @@ proc title_index {abcfile} {
             regexp $pat $line number
             if {$number != 0} {set number [string trimleft $number 0]}
             # 2017-05-05 set filepos
-            # 2021-02-21 changed -2 to -0 below so that extract_tune_info
-            # does not miss the first tune in the file prefixed with
-            # psheader or %%MIDI commands. Otherwise X: command is
-            # encountered in the next line causing a tune break.
-            set filepos [expr [tell $titlehandle] - [string length $line] -0]
+            set filepos [expr [tell $titlehandle] - [string length $line] -2]
 	    if {$filepos < 0} {set filepos 0}
             set srch T
             break
@@ -19081,6 +19077,8 @@ proc extract_tune_info {} {
     #puts "extract_tune_info for $sel"
     if {[llength $sel] != 1} {return}
     set loc $fileseek($sel)
+    #skip first X: 2021.03.04
+    incr loc 2 
     set handle [open $midi(abc_open) r]
     seek $handle $loc
     gets $handle line
