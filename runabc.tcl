@@ -32,7 +32,7 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.276
+set runabc_version 2.277
 set runabc_date "(March 04 2021 07.10)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
@@ -23357,7 +23357,7 @@ text .live.main.editor.t  -width 50 -height 25 -wrap none -bg bisque\
             -yscrollcommand {.live.main.editor.ysbar set} \
             -xscrollcommand {.live.main.editor.xsbar set} 
 scrollbar .live.main.editor.ysbar -orient vertical -command {.live.main.editor.t yview}
-scrollbar .live.main.editor.xsbar -orient horizontal -command {.live.main.editor xview}
+scrollbar .live.main.editor.xsbar -orient horizontal -command {.live.main.editor.t xview}
 
 pack .live.main.editor.ysbar -side right -fill y -expand 0
 pack .live.main.editor.xsbar -side bottom -fill x
