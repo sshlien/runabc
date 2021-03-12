@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.277
-set runabc_date "(March 04 2021 07.10)"
+set runabc_version 2.278
+set runabc_date "(March 11 2021 20.55)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -7552,10 +7552,18 @@ for {set i 1} {$i <17} {incr i} {
 
 proc random_voice_arrangement {} {
 global midi
+set midiproglist {0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 14 15 16 17 28 29 30 31 32 33 34 35 36 37 38 39 
+    40 41 42 43 44 45 46 48 49 50 51 52 53 54 55 56 57 58 59 60
+    61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80
+    81 82 83 84 85 86 87 88 89 90 91 92 93 94 95
+   104 105 106 107 108 109 110 111}
+# we exclude timpani, rain and other effects
+
 for {set i 1} {$i < 17} {incr i} {
    set v voice$i
-   set num [expr int(rand()*128)]
-   set midi($v) $num
+   set num [expr int(rand()*103)]
+   set midi($v) [lindex $midiproglist $num]
    }
    map_midi_to_voices
 }
