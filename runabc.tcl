@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.278
-set runabc_date "(March 11 2021 20.55)"
+set runabc_version 2.279
+set runabc_date "(March 22 2021 08.15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -18559,7 +18559,7 @@ proc process_line {line} {
     # the guitar chord indications. Thus we need to recognize
     # barlines eg. | || :| |: |[1 |[2
     # chords eg. [CEG]
-    # triplets eg. (3CDD
+    # tuplets eg. (n:m:pDEF 
     # gchords (anything enclosed by double quotes)
     # notes eg. A3/2 A/ A3 A
     # Each of these entities are handled by different functions.
@@ -18573,7 +18573,7 @@ proc process_line {line} {
     set curlypat {\{[^\}]*\}}
     set chordpat {(\[[^\]\[]*\])(/?[0-9]*|[0-9]*/*[0-9]*)}
     set instructpat {![^!]*!}
-    set tripletpat {\(3}
+    set tupletpat  {\(\d(\:\d)*}
     set sectpat {\[[0-9]+}
     
     global expandedchords
@@ -18645,16 +18645,18 @@ proc process_line {line} {
                 continue}
         }
         
-        
-        set success [regexp -indices -start $i $tripletpat $line location]
-        # search for triplet indication
-        if {$success} {
-            set loc1  [lindex $location 0]
-            set loc2  [lindex $location 1]
-            if {$loc1 == $i && $activevoice == $chosenvoice} {gv_process_triplet
-                set i [expr $loc2+1]
-                continue}
+       set success [regexp -indices -start $i $tupletpat $line location]
+# search for triplet indication
+         if {$success} {
+          set loc1  [lindex $location 0]
+          set loc2  [lindex $location 1]
+          if {$loc1 == $i} {gv_process_tuplet $location $line
+            set i [expr $loc2+1]
+            continue}
         }
+
+
+        
         
         set success [regexp -indices -start $i $instructpat $line location]
         # search for embedded instructions like !fff!
@@ -18712,13 +18714,39 @@ proc process_line {line} {
 }
 
 
-
-
-# set flag to adjust the duration of the next three notes
-proc gv_process_triplet {} {
-    global triplet_running
-    set triplet_running 1
+# set flag to adjust the duration of the next notes enclosed in tuplet
+proc gv_process_tuplet {location line} {
+global triplet_running
+global nequiv
+global tuplenotes
+global tupletscalefactor
+set tuplet [string range $line [lindex $location 0] [lindex $location 1]]
+set n [scan $tuplet "(%d:%d:%d" n1 n2 n3]
+#puts "tuplet = $tuplet n = $n"
+set triplet_running 1
+if {$n == 1} {
+  set tuplesize $n1
+  set tuplenotes $tuplesize
+  switch $n1 {
+    2 {set nequiv 3}
+    3 {set nequiv 2}
+    4 {set nequiv 3}
+    6 {set nequiv 2}
+    }
+} elseif {$n == 2} {
+   set tuplesize $n1
+   set tuplenotes $tuplesize
+   set nequiv $n2
+} elseif {$n == 3} {
+   set tuplesize $n1
+   set nequiv $n2
+   set tuplenotes $n3
 }
+set tupletscalefactor [expr $nequiv/double($tuplesize)]
+}
+
+
+
 
 # determine the duration of the note. We ignore broken
 # notes (eg A > C) because the two notes usually complete
@@ -18726,6 +18754,8 @@ proc gv_process_triplet {} {
 # notes.
 proc gv_process_note {token} {
     global triplet_running
+    global tuplenotes
+    global tupletscalefactor
     global bar_accumulator
     set durpatf {([0-9])\/([0-9])}
     set durpatn {[0-9]}
@@ -18746,10 +18776,11 @@ proc gv_process_note {token} {
         set increment $gchordsetup::noteunits
     }
     if {$triplet_running} {
-        set increment [expr 2 * $increment/3]
-        incr triplet_running
-        if {$triplet_running > 3} {set triplet_running 0}
-    }
+       set increment [expr round($tupletscalefactor * $increment)]
+       incr triplet_running
+       if {$triplet_running > $tuplenotes} {set triplet_running 0}
+       }
+
     incr bar_accumulator $increment
     return
 }
@@ -23530,7 +23561,7 @@ set gchordpat {\"[^\"]+\"}
 set curlypat {\{[^\}]*\}}
 set chordpat {\[[^\]\[]*\]}
 set instructpat {![^!]*!}
-set tripletpat {\(3}
+set tupletpat  {\(\d(\:\d)*}
 set sectpat {\[[0-9]+}
 
 global bar_accumulator beat_accumulator
@@ -23592,12 +23623,12 @@ while {$i < [string length $line]} {
    }
 
 
- set success [regexp -indices -start $i $tripletpat $line location]
-# search for triplet indication
+ set success [regexp -indices -start $i $tupletpat $line location]
+# search for tuplet indication
   if {$success} {
    set loc1  [lindex $location 0]
    set loc2  [lindex $location 1]
-   if {$loc1 == $i} {gc_process_triplet
+   if {$loc1 == $i} {gv_process_tuplet $location $line
      set i [expr $loc2+1]
      continue}
    }
@@ -23658,8 +23689,7 @@ set bodytext $bodytext$lineout\n
 
 # set flag to adjust the duration of the next three notes
 proc gc_process_triplet {} {
-global triplet_running
-set triplet_running 1
+process_tuplet
 }
 
 # determine the duration of the note. We ignore broken
@@ -23670,6 +23700,8 @@ proc gc_process_note {token} {
   global bar_accumulator beat_accumulator
   global noteunits
   global triplet_running
+  global tupletscalefactor
+  global tuplenotes
   global pitcharray 
 
   set durpatf {([0-9])\/([0-9])}
@@ -23693,11 +23725,12 @@ proc gc_process_note {token} {
      } else {
   set increment $noteunits
   }
-  if {$triplet_running} {
-     set increment [expr 2 * $increment/3]
+ if {$triplet_running} {
+     set increment [expr round($tupletscalefactor * $increment)]
      incr triplet_running
-     if {$triplet_running > 3} {set triplet_running 0}
+     if {$triplet_running > $tuplenotes} {set triplet_running 0}
      }
+
   incr bar_accumulator $increment
   incr beat_accumulator $increment
   #puts "$token $pitchval $bar_accumulator $increment $pitchval"
