@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.279
-set runabc_date "(March 22 2021 08.15)"
+set runabc_version 2.280
+set runabc_date "(March 28 2021 19.40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2069,14 +2069,10 @@ set styleblock "
         svg {display:block}
         @media print{body{margin:0;padding:0;border:0}.nop{display:none}}
         </style>"
-set w(0) "abc2svg-1.js"
 set w(1) "snd-1.js"
-set w(2) "follow-1.js"
 set tail "\"></script>\n"
-append scriptlist "     <script src=\"$url$w(0)$tail"
 append scriptlist "     <script src=\"$url$abcweb$tail"
 append scriptlist "     <script src=\"$url$w(1)$tail"
-append scriptlist "     <script src=\"$url$w(2)$tail"
 append scriptlist $styleblock
 return $scriptlist
 }
@@ -2113,7 +2109,7 @@ close $inhandle
 
 set outhandle [open $midi(outhtml) w]
 puts $outhandle $preface
-puts $outhandle  "</head>\n<body>\n<script type=\"text/vnd.abc\" class=\"abc\">"
+puts $outhandle  "</head>\n<body>\n<script type=\"text/vnd.abc\">"
 
 if {$midi(fmt_chk) && [file exist $midi(ps_fmt_file)]} {
   set inhandle [open $midi(ps_fmt_file)]
