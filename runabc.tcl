@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.280
-set runabc_date "(March 28 2021 19.40)"
+set runabc_version 2.283
+set runabc_date "(April 16 2021 14.20)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -552,6 +552,7 @@ proc greetings {msg} {
     global df midi
     if {[winfo exists .greetings] != 0} {destroy .greetings}
     toplevel .greetings -width 400
+    wm title .greetings Welcome
     position_window ".greetings"
     message .greetings.out -text $msg -font $df -width 400
     pack .greetings.out
@@ -616,7 +617,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
                 http://ifdo.ca/~seymour/runabc/top.html\n\
                 You should put these executables in the same folder where runabc is found.\
                 If the executables are in a different folder you need to specify their location\
-                by going to the options/abc executables menu item (wrench icon).\n"
+                by going to the 'Options/Abc executables' menu item (wrench icon).\n"
         set result [check_file path_abcm2ps]
         if {[string first "not found" $result] >= 0} {
             append msg "\nabcm2ps was not found at $midi(path_abcm2ps) \n"
@@ -634,7 +635,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
                     the install package from http://blog.kowalczyk.info/software/sumatrapdf/free-pdf-reader.html\n"}
         if {[file exist "c:/Program Files/gs/"] != 1} {
             set prtmsg 1
-            append msg " You will also need Ghostview which you can get from http://www.cs.wisc.edu/~ghost/index.htm\n\
+            append msg " You will also need Ghostscript which you can get from http://www.cs.wisc.edu/~ghost/index.htm\n\
                     This should create a folder gs in your c:/program files/ directory."
         }
         if {$prtmsg} {append msg $xmsg
@@ -643,7 +644,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
     } else {
         if {$abcmidi == 1} {append msg "\nIf the abcmidi executables are\
                     already on your system, then you need to indicate their location by\
-                    going to the options/abc executables menu item (wrench icon) and specifying\
+                    going to the 'Options/Abc executables' menu item (wrench icon) and specifying\
                     their location. If you do not have the executables, you will need to\
                     build them from the source code which you can find on\
                     http://ifdo.ca/~seymour/runabc/top.html or on sourceforge.net.\n"}
@@ -1461,8 +1462,8 @@ bind .abc.file.entry <KeyRelease> {
 set w .abc.file.menu
 menubutton .abc.file.menu -text file -image fileopen-16 -relief raised  -menu $w.type -font $df
 menu $w.type -tearoff 0
-$w.type add radiobutton  -label "browse" -command file_browser  -font $df
-$w.type add radiobutton  -label "clear recent" -command delete_history  -font $df
+$w.type add radiobutton  -label "Browse" -command file_browser  -font $df
+$w.type add radiobutton  -label "Clear recent" -command delete_history  -font $df
 
 for {set i 0} {$i < $midi(history_length)} {incr i} {
     $w.type add radiobutton  -label $midi(history$i) \
@@ -1487,14 +1488,14 @@ bind .abc.functions.disp <Button-3> {display_action 0}
 set w .abc.functions.editmenu
 menubutton $w -text edit -font $df -image edit-22 -menu $w.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add command -label "edit file" -command  {
+$w.type add command -label "Edit file" -command  {
     . config -cursor watch
     update
     abc_edit midi(abc_open)
     set abc_file_mod 1
     . config -cursor arrow
     update}  -font $df
-$w.type add command  -label "edit selection" -command  {
+$w.type add command  -label "Edit selection" -command  {
     set outfile [extract_title_of_first_tune [title_selected] $midi(abc_open)]
     set outfile [file join $midi(abc_work_folder) $outfile.abc]
     copy_selection_to_file [title_selected] $midi(abc_open) $midi(abc_default_file)
@@ -1507,68 +1508,68 @@ $w.type add command  -label "TclAbcEditor"\
 $w.type add command -label "TclMultiVoiceEditor"\
         -command {startup_tcl_abc_edit 0} -font $df
 
-$w.type add command -label "new tune"       -command edit_new_tune -font $df
-$w.type add command -label "new file"       -command edit_empty_file -font $df
+$w.type add command -label "New tune"       -command edit_new_tune -font $df
+$w.type add command -label "New file"       -command edit_empty_file -font $df
 
 
 set w .abc.functions.utilmenu
 menubutton $w -text edit -font $df -image misc-22  -menu $w.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add command -label "abc2abc"        -command show_abc2abc_page -font $df
-$w.type add command -label "gchords/drums to voice" -command g2v_startup -font $df
-$w.type add command -label "reformat"   -command show_reformat_page -font $df
-$w.type add command -label "extract part"   -command show_extract_page -font $df
-$w.type add command -label "drum tool"    -command {drumtool_gui_setup} -font $df
-$w.type add command -label "pitch histogram" -command {note_histogram} -font $df
-$w.type add command -label "pitch interval histogram" -command {note_interval_histogram} -font $df
-$w.type add command -label "save midi file(s)" -command midisave -font $df
-$w.type add command -label "save sheet music as ps" -command postscriptsave -font $df
-$w.type add command -label "save sheet music as pdf" -command pdfsave -font $df
-$w.type add command -label "split abc file" -command split_abc_tool  -font $df
-$w.type add command -label "copy incipits" -command show_incipits_page -font $df
-$w.type add cascade -label "copy to file" -menu $w.type.copy -font $df
+$w.type add command -label "Abc2abc"        -command show_abc2abc_page -font $df
+$w.type add command -label "Gchords/drums to voice" -command g2v_startup -font $df
+$w.type add command -label "Reformat"   -command show_reformat_page -font $df
+$w.type add command -label "Extract part"   -command show_extract_page -font $df
+$w.type add command -label "Drum tool"    -command {drumtool_gui_setup} -font $df
+$w.type add command -label "Pitch histogram" -command {note_histogram} -font $df
+$w.type add command -label "Pitch interval histogram" -command {note_interval_histogram} -font $df
+$w.type add command -label "Save midi file(s)" -command midisave -font $df
+$w.type add command -label "Save sheet music as ps" -command postscriptsave -font $df
+$w.type add command -label "Save sheet music as pdf" -command pdfsave -font $df
+$w.type add command -label "Split abc file" -command split_abc_tool  -font $df
+$w.type add command -label "Copy incipits" -command show_incipits_page -font $df
+$w.type add cascade -label "Copy to file" -menu $w.type.copy -font $df
 menu $w.type.copy -tearoff 0
-$w.type.copy add command -label "copy" -font $df \
+$w.type.copy add command -label "Copy" -font $df \
         -command {start_copy_selected_files w 0}
-$w.type.copy add command -label "copy and renumber" -font $df \
+$w.type.copy add command -label "Copy and renumber" -font $df \
         -command {start_copy_selected_files w 1}
-$w.type.copy add command -label "copy all" -font $df \
+$w.type.copy add command -label "Copy all" -font $df \
         -command copy_all_and_renumber
-$w.type.copy add command -label "append" -font $df \
+$w.type.copy add command -label "Append" -font $df \
         -command {start_copy_selected_files a 0}
-$w.type.copy add command -label "append and renumber" -font $df \
+$w.type.copy add command -label "Append and renumber" -font $df \
         -command {start_copy_selected_files a 1}
-$w.type.copy add command -label "merge abc files" -font $df \
+$w.type.copy add command -label "Merge abc files" -font $df \
         -command {merge_abc_files}
-$w.type.copy add command -label "combine parts" -font $df \
+$w.type.copy add command -label "Combine parts" -font $df \
         -command {combine_parts}
-$w.type.copy add command -label help -font $df \
+$w.type.copy add command -label Help -font $df \
         -command {show_message_page $hlp_copy word}
-$w.type add command -label "help" -command {show_message_page $hlp_utils word} -font $df
+$w.type add command -label "Help" -command {show_message_page $hlp_utils word} -font $df
 
 set hlp_utils "Abc Utilities\n\n\
 abc2abc: most commonly it is used to transpose the abc notation to another\
 key; however there are many other abc2abc functions available\n\n\
-gchords/drums to voice: the guitar chord indications are used to create\
+'Gchords/drums to voice': the guitar chord indications are used to create\
 a separate voice in the abc notation. Similarly, the %%MIDI drum command\
 can also be expanded into a separate voice.\n\n\
-reformat: changes the way the abc notation is presented. You can change\
+Reformat: changes the way the abc notation is presented. You can change\
 the number of bars in a text line or in a music staff. You can interleave\
 the voices and etc.\n\n\
-extract part: uses abc2abc to extract a particular voice from a multivoiced\
+Extract part: uses abc2abc to extract a particular voice from a multivoiced\
 abc tune.\n\n\
 drumtool: a tool for creating drum riffs to insert in your abc tune.\n\n\
-pitch histogram: plots the histogram of the pitch classes in the abc\
+Pitch histogram: plots the histogram of the pitch classes in the abc\
 tune and guesses the key and mode from the histogram.\n\n\
-pitch interval histogram: plots the histogram of the pitch intervals\
+Pitch interval histogram: plots the histogram of the pitch intervals\
 between adjacent notes.\n\n\
-save midi files(s): creates and saves the midi files of the selected tunes.\n\n\
-save sheet music as ps: creates and saves the sheet music as a PostScript file.\n\n\
-save sheet music as pdf: creates and saves the sheet music as a pdf file.\n\n\
-'split abc file' splits a multitune\ abc file into separate files each\
+Save midi files(s): creates and saves the midi files of the selected tunes.\n\n\
+Save sheet music as ps: creates and saves the sheet music as a PostScript file.\n\n\
+Save sheet music as pdf: creates and saves the sheet music as a pdf file.\n\n\
+'Split abc file' splits a multitune\ abc file into separate files each\
 containing one tune and puts the files into a selected directory.\
 The file names can be derived from the X reference number or the title.\n\n\
-copy incipits: creates a new abc file with only the first n bars of each\
+Copy incipits: creates a new abc file with only the first n bars of each\
 tune.\n\n\
 copy: see its separate help file in the cascaded menu.\n
 
@@ -1585,17 +1586,17 @@ tooltip::tooltip $w.type.copy -index 7  "click help button below"
 
 menubutton .abc.functions.internals -text internals -image exec-22 -menu .abc.functions.internals.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu .abc.functions.internals.type -tearoff 0
-.abc.functions.internals.type add command -label "messages" -command {show_console_page $exec_out char} -font $df -accelerator "ctrl-m"
-.abc.functions.internals.type add command -label "processed tune" -command {show_processed_tune} -font $df
-.abc.functions.internals.type add command -label "bar line alignment" -command {show_bar_line_alignment} -font $df
-.abc.functions.internals.type add command -label "contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
-.abc.functions.internals.type add command -label "mftext of output midi file (beats)" -font $df -command {set midi(mftextunits) 2
+.abc.functions.internals.type add command -label "Messages" -command {show_console_page $exec_out char} -font $df -accelerator "ctrl-m"
+.abc.functions.internals.type add command -label "Processed tune" -command {show_processed_tune} -font $df
+.abc.functions.internals.type add command -label "Bar line alignment" -command {show_bar_line_alignment} -font $df
+.abc.functions.internals.type add command -label "Contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
+.abc.functions.internals.type add command -label "Mftext of output midi file (beats)" -font $df -command {set midi(mftextunits) 2
 			  mftextwindow $midioutput 0} 
-.abc.functions.internals.type add command -label "mftext of output midi file (pulses)" -font $df -command {set midi(mftextunits) 3
+.abc.functions.internals.type add command -label "Mftext of output midi file (pulses)" -font $df -command {set midi(mftextunits) 3
 			  mftextwindow $midioutput 0} 
-.abc.functions.internals.type add command -label "view X.tmp"     -command show_tmpfile -font $df
-.abc.functions.internals.type add command -label "save X.tmp as an abc file" -command save_tmpfile -font $df
-.abc.functions.internals.type add command -label "help" -font $df \
+.abc.functions.internals.type add command -label "View X.tmp"     -command show_tmpfile -font $df
+.abc.functions.internals.type add command -label "Save X.tmp as an abc file" -command save_tmpfile -font $df
+.abc.functions.internals.type add command -label "Help" -font $df \
        -command {show_message_page $hlp_internals word}
 
 
@@ -1603,25 +1604,25 @@ menu .abc.functions.internals.type -tearoff 0
 
 menubutton .abc.functions.search -text search -image find-22 -menu .abc.functions.search.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu .abc.functions.search.type -tearoff 0
-.abc.functions.search.type add command -label "find title" -font $df  -command {find_window}
-.abc.functions.search.type add command -label "find bars"  -font $df  -command {match_window bars}
-.abc.functions.search.type add command -label "match tune"  -font $df  -command {match_window tune}
-.abc.functions.search.type add command -label "grouper"    -font $df  -command grouper_window
-.abc.functions.search.type add command -label "histogram matcher"    -font $df \
+.abc.functions.search.type add command -label "Find title" -font $df  -command {find_window}
+.abc.functions.search.type add command -label "Find bars"  -font $df  -command {match_window bars}
+.abc.functions.search.type add command -label "Match tune"  -font $df  -command {match_window tune}
+.abc.functions.search.type add command -label "Grouper"    -font $df  -command grouper_window
+.abc.functions.search.type add command -label "Histogram matcher"    -font $df \
 -command Matcher::match_histogram_correlation
 
 
 menubutton .abc.functions.midi -text midimenu -image kmidi-16  -width 24 -menu .abc.functions.midi.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu .abc.functions.midi.type -tearoff 0
-.abc.functions.midi.type add command -label "midisummary"   -font $df  -command make_midi_summary
-.abc.functions.midi.type add command -label "midi2abc"   -font $df  -command show_midi2abc_page
-.abc.functions.midi.type add command -label "midistructure"   -font $df  -command midi_structure_window
-.abc.functions.midi.type add command -label "pianoroll"   -font $df  -command {piano_window $midi(midifilein)}
-.abc.functions.midi.type add command -label "drum events" -font $df -command drumroll_window
-.abc.functions.midi.type add command -label "mftext by beats" -font $df  -command {
+.abc.functions.midi.type add command -label "Midisummary"   -font $df  -command make_midi_summary
+.abc.functions.midi.type add command -label "Midi2abc"   -font $df  -command show_midi2abc_page
+.abc.functions.midi.type add command -label "Midistructure"   -font $df  -command midi_structure_window
+.abc.functions.midi.type add command -label "Pianoroll"   -font $df  -command {piano_window $midi(midifilein)}
+.abc.functions.midi.type add command -label "Drum events" -font $df -command drumroll_window
+.abc.functions.midi.type add command -label "Mftext by beats" -font $df  -command {
    set midi(mftextunits) 2
    mftextwindow $midi(midifilein) 0}
-.abc.functions.midi.type add command -label "mftext by pulses" -font $df  -command {
+.abc.functions.midi.type add command -label "Mftext by pulses" -font $df  -command {
    set midi(mftextunits) 3
    mftextwindow $midi(midifilein) 0}
 
@@ -1630,21 +1631,21 @@ button .abc.functions.toc -text toc -image content-22 -command show_titles_page 
 set w .abc.functions.playopt
 menubutton $w -text "play options" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton -label "use midi header" -font $df -variable midi(use_midi_header)
-$w.type add checkbutton -label "override tempo" -font $df -variable midi(ignoreQ) -command disable_enable_tempo_controller
-$w.type add command  -label transposition/tuning  -command {show_midi_page 1} -font $df
-$w.type add command  -label arrangement  -command {show_midi_page 2} -font $df
-$w.type add command  -label "advanced settings" -command {show_midi_page 8} -font $df
-$w.type add command  -label  drumkit     -command drum_editor -font $df
-$w.type add command  -label voices       -command show_voice_page  -font $df
-$w.type add command  -label "random voice arrangement"  -command random_voice_arrangement  -font $df
-$w.type add command  -label help -command {show_message_page $hlp_playopt word} -font $df
+$w.type add checkbutton -label "Use midi header" -font $df -variable midi(use_midi_header)
+$w.type add checkbutton -label "Override tempo" -font $df -variable midi(ignoreQ) -command disable_enable_tempo_controller
+$w.type add command  -label Transposition/tuning  -command {show_midi_page 1} -font $df
+$w.type add command  -label Arrangement  -command {show_midi_page 2} -font $df
+$w.type add command  -label "Advanced settings" -command {show_midi_page 8} -font $df
+$w.type add command  -label  Drumkit     -command drum_editor -font $df
+$w.type add command  -label Voices       -command show_voice_page  -font $df
+$w.type add command  -label "Random voice arrangement"  -command random_voice_arrangement  -font $df
+$w.type add command  -label Help -command {show_message_page $hlp_playopt word} -font $df
 
 
 set w .abc.functions.yaps
 menubutton $w  -text "yaps opts" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
 $w.type add command -label options -command {show_ps_page yaps} -font $df
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
@@ -1659,7 +1660,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 set w .abc.functions.abc2svg
 menubutton $w  -text "abc2svg" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
 $w.type add command -label "create format file" -font $df \
   -command setup_m2ps
 $w.type add command -label options -command {show_ps_page abc2svg} -font $df
@@ -1675,7 +1676,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 set w .abc.functions.abc2ps
 menubutton $w   -text "abc2ps options" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
 $w.type add command -label "boolean command options"  -command {show_ps_page m2psbool} -font $df
 $w.type add command -label "numeric command options" -command {show_ps_page m2psfloat}  -font $df
 $w.type add command -label "create format data" -font $df \
@@ -1695,7 +1696,7 @@ $w.type.selector add radiobutton -label abc2svg -variable midi(ps_creator) \
 set w .abc.functions.otherps
 menubutton $w   -text "other ps" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
 $w.type add  radiobutton -label "options" -font $df  -command show_other_ps
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
@@ -1710,23 +1711,23 @@ $w.type.selector add radiobutton -label abc2svg -variable midi(ps_creator) \
 set w .abc.functions.cfg
 menubutton $w -image config-22 -text cfg -menu $w.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add command  -label "abc executables" -command {show_config_page 1} -font $df
-$w.type add command  -label "check integrity" -command check_integrity -font $df
-$w.type add command  -label "sanity check"    -command {runabc_diagnostic}  -font $df
-$w.type add command  -label "midi player"     -command {show_config_page 2} -font $df
-$w.type add command  -label "font selector"   -command {show_config_page 4} -font $df
-$w.type add command -label "character encoding" -command {show_config_page 5} -font $df
-$w.type add command -label  "button style" -command {show_config_page 6} -font $df
-$w.type add checkbutton -label "remember locations of windows" -font $df\
+$w.type add command  -label "Abc executables" -command {show_config_page 1} -font $df
+$w.type add command  -label "Check integrity" -command check_integrity -font $df
+$w.type add command  -label "Sanity check"    -command {runabc_diagnostic}  -font $df
+$w.type add command  -label "Midi player"     -command {show_config_page 2} -font $df
+$w.type add command  -label "Font selector"   -command {show_config_page 4} -font $df
+$w.type add command -label "Character encoding" -command {show_config_page 5} -font $df
+$w.type add command -label  "Button style" -command {show_config_page 6} -font $df
+$w.type add checkbutton -label "Remember locations of windows" -font $df\
  -variable midi(autoposition)
-$w.type add checkbutton  -label "use ps header" -font $df -variable midi(use_ps_header)
-$w.type add checkbutton -label "index by position" -variable midi(index_by_position) -font $df
-$w.type add checkbutton -label "ignore blank lines" -variable midi(blank_lines)  -font $df
-$w.type add checkbutton -label "bell on file write" -variable midi(bell_on)  -font $df
-$w.type add checkbutton -label "no confirm for unsaved file" -variable midi(noconfirmsave)  -font $df
-$w.type add checkbutton -label "reveal button labels" -variable midi(buttonlabels) -command button_label_action -font $df
-$w.type add command  -label "load runabc extension"    -command {load_extension}  -font $df
-$w.type add checkbutton -label "help" -font $df -command {show_message_page $hlp_cfg word}
+$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton -label "Index by position" -variable midi(index_by_position) -font $df
+$w.type add checkbutton -label "Ignore blank lines" -variable midi(blank_lines)  -font $df
+$w.type add checkbutton -label "Bell on file write" -variable midi(bell_on)  -font $df
+$w.type add checkbutton -label "No confirm for unsaved file" -variable midi(noconfirmsave)  -font $df
+$w.type add checkbutton -label "Reveal button labels" -variable midi(buttonlabels) -command button_label_action -font $df
+$w.type add command  -label "Load runabc extension"    -command {load_extension}  -font $df
+$w.type add checkbutton -label "Help" -font $df -command {show_message_page $hlp_cfg word}
 
 if {$tcl_platform(platform) == "windows"} {
     $w.type add command  -label "Register .abc files" -command associate_abc -font $df}
@@ -1923,7 +1924,7 @@ proc abcmidi_no_such_error {exefile} {
     set msg "Runabc could not find the executable $tail in the folder $pathname.\
             $tail is part of the abcMIDI package. If the package\
             is already on your system, then you need to indicate the path to the\
-            package by going to the config/abc executables menu item (see wrench\
+            package by going to the 'Options/Abc executables' menu item (see wrench\
             icon)."
     show_error_message $msg
 }
@@ -4694,7 +4695,7 @@ set hlp_barpicker "TclMultiVoice Editor\n\n\
         placed in the orange entry box.\n\n\
         All the contents of the p memory buttons can be cleared using the\
         'clear' button. The 'import' button works in conjuction with the\
-        'drum tool' which should be exposed before pressing that\
+        'Drum tool' which should be exposed before pressing that\
         button. The import button will transfer the contents of the D\
         memory buttons to the p buttons. A plain bar marker like | will\
         be added. When repeat markings are needed, you will have to\
@@ -6073,7 +6074,7 @@ proc show_message_page {text wrapmode} {
     } else {
         toplevel $p
         position_window ".notice"
-        text $p.t -height 15 -width 50 -wrap $wrapmode -font $df -yscrollcommand {.notice.ysbar set}
+        text $p.t -height 20 -width 60 -wrap $wrapmode -font $df -yscrollcommand {.notice.ysbar set}
         scrollbar $p.ysbar -orient vertical -command {.notice.t yview}
         pack $p.ysbar -side right -fill y -in $p
         pack $p.t -in $p -fill both -expand true
@@ -6638,7 +6639,7 @@ frame $w.8
 frame $w.9
 frame $w.msg
 
-label $w.0 -text "gchords/drums to voice" -font $df
+label $w.0 -text "Gchords/drums to voice" -font $df
 label $w.1.lab -text "default gchord string" -font $df
 entry $w.1.ent -width 24 -textvariable gvchordstring -font $df
 label $w.5.lab -text "default drum string" -font $df
@@ -6820,7 +6821,7 @@ set w .abc.abc2svg
 frame $w
 checkbutton $w.formchk -variable midi(fmt_chk) -text "include ps header" -font $df
 checkbutton $w.midichk -variable midi(midi_chk) -text "include midi settings" -font $df
-checkbutton $w.replaceQ -variable midi(ignoreQ) -text "override tempo"\
+checkbutton $w.replaceQ -variable midi(ignoreQ) -text "Override tempo"\
  -command disable_enable_tempo_controller -font $df
 checkbutton $w.noaccomp -variable midi(nogchords) -text "no accompaniment" -font $df
 button $w.formlab -text "format file" -font $df\
@@ -6981,7 +6982,7 @@ pack $w.tuning.0 $w.tuning.1  -side left
 
 
 frame $w.over
-checkbutton $w.over.1 -text "override tempo " -variable midi(ignoreQ)\
+checkbutton $w.over.1 -text "Override tempo " -variable midi(ignoreQ)\
         -font $df -command disable_enable_tempo_controller
 
 checkbutton $w.over.2 -text "override  midi " \
@@ -8119,18 +8120,18 @@ set hlp_overview "You are running runabc.tcl version $runabc_version $runabc_dat
         PostScript file viewer and midi file player and many other executables.\
         If you are running the program for the first time, you need to specify\
         the path name to these executables in the configuration property sheet. \
-        Click the config/abc executables button and then the help button for\
+        Click the 'Options/Abc executables' menu button and then the help button for\
         further instructions.\n\n\
         Once you have properly configured the program, use the 'file' \
         button to select the input abc file. This is a button with a picture\
         of a file on the top left corner.) Click the browse menu to\
-        to browse through you file structure. Alternatively, you may\
+        to browse through your file structure. Alternatively, you may\
         enter the relative or absolute path name in the adjoining entry\
         box followed with a carriage return to activate. (This works only if\
         a table of contents is already displayed.) For many entry boxes\
         pressing a carriage return will remove the focus (cursor) from\
         that box.\n\n  The abc file may consist of \
-        compilation of many tunes. The list of tune titles will be displayed \
+        a compilation of many tunes. The list of tune titles will be displayed \
         in the listbox below. Select one or tunes and then click one \
         of the buttons described below. To select several tunes, either sweep \
         the mouse cursor over the tunes holding the left button down, or else \
@@ -8215,7 +8216,7 @@ set hlp_config_1 "Configuration Property Sheet\n\n\This page is\
         associate the abc files to runabc through the registry. Click that\
         button and then the help button in the new window for more information.\n\n
 If you are going to play your midi files on a midi player you should \
-        also go to the config/player 1 configuration page. Go to this page \
+        also go to the 'Options/player 1' configuration page. Go to this page \
         and click the help button for more instructions.\n\n"
 
 set hlp_config_2 "Midi Player\n\n\
@@ -8286,15 +8287,15 @@ of the interface. Click on any of the radio buttons and then apply the\
 new options by clicking on the activate button."
 
 set hlp_cfg "Other configuration items\n\n\
-use ps header: if checked all the postscript commands beginning with %%\
+Use ps header: if checked all the postscript commands beginning with %%\
 occurring in the beginning of abc file (before the first X:)\
 will be inserted in the selected tune before it is displayed.\n
 greetings: shows the start up message you see the first time you run runabc.tcl\
 i.e. (runabc.ini is missing). The message may report potential problems.\n
-sanity check: checks the for the presence of all helper programs (eg. abc2midi)\
+'Sanity check': checks the for the presence of all helper programs (eg. abc2midi)\
 which are called by runabc. The version number's of the programs are compared\
 with the minimum required version.\n
-ignore blank lines: tells runabc not to use blank lines as separators\
+'Ignore blank lines': tells runabc not to use blank lines as separators\
 between tunes in a collection. A X: reference number declaration is used\
 to start a new tune.\n
 bell on file write: causes the computer to acknowledge a file output with a\
@@ -8307,7 +8308,7 @@ grouper functions. The items in the TOC are normally located by X: reference\
 assuming that the X: reference numbers are distinct for each tune in the file.\
 If they are not distinct, it may help to reference the tunes by the order they\
 are found in the file (index by position).\n
-reveal button labels: displays the labels associated with the icons.\n
+'Reveal button labels': displays the labels associated with the icons.\n
 load runabc extension: allows you to load certain runabc add-ons\
 which are too specialized to be included in the general version. These\
 add-ons may be used for producing scikit-learn data files for future\
@@ -8455,10 +8456,10 @@ Midi drone control\n\n\
 set hlp_playopt " Play Options\n\n\
         There is context help for most of the options in this menu with some\
 	exceptions.\n\n\
-        use midi header: if checked all the midi commands beginning with %%MIDI\
+        Use midi header: if checked all the midi commands beginning with %%MIDI\
         occurring in the beginning of the abc file (before the first X:)\
         will be inserted in the selected tune before it is played.\n\n\
-	random voice arrangement: will assign random midi programs to the\
+	Random voice arrangement: will assign random midi programs to the\
 	voices in the voices frame exposed with the above menu item.
 	"
 
@@ -8592,7 +8593,7 @@ set hlp_multirests "Multirest tool functions\n\n\
         then the function determines the whole rest size by searching for previous L: and M:\
         indications.\n\n\
         Two other tools are available for condensing a sequence of whole rest bars. You\
-        can also do the same thing in the edit/extract part menu page but sometimes things\
+        can also do the same thing in the 'Edit/Extract part' menu page but sometimes things\
         do not work out automatically and you may need more control."
 
 set hlp_midisave "This tool makes it easier to create multiple midi files\
@@ -8776,7 +8777,7 @@ If the tune contains a %%MIDI drum command the program can also\
         signature of the piece. Alternatively, you can specify your own\
         drum pattern by clicking going to the drumkit window. Or you can\
         just enter the %%MIDI drum command in the entry box provided\
-        in the ghcords/drums to voice window.
+        in the Ghcords/drums to voice window.
 
 For most single voiced abc tunes, the input voice name or number\
         should be the numeral 1. If the abc tune contains more than one voice\
@@ -13315,7 +13316,7 @@ proc ppqn_adjustment_window {} {
 
 set hlp_midishow "In order to use this tool you require midi2abc\
         version 3.02 or higher and midicopy 1.22 or higher. Be sure to\
-        specify the path to midicopy in the config/abc executables page.\n\n\
+        specify the path to midicopy in the 'Options/Abc executables' page.\n\n\
         The function will display the selected MIDI file in a piano\
         roll form in a resizeable separate window.\n\n\
         Vertical lines indicate beat numbers as determined by the\
@@ -19561,13 +19562,14 @@ namespace eval Refactor {
         if {![winfo exist $p]} {
             toplevel $p
             position_window ".headers"
+            wm title .headers Headers
             text $p.t -width 50 -height 10 -bg #f4ece0 \
                     -yscrollcommand {.headers.ysbar set} \
                     -xscrollcommand {.headers.xsbar set} \
                     -font $df -exportselection false
             scrollbar $p.ysbar -orient vertical -command {.headers.t yview}
             scrollbar $p.xsbar -orient horizontal -command {.headers.t xview}
-            button $p.more -text more... -font $df -bd 0\
+            button $p.more -text More... -font $df -bd 0\
                     -command Refactor::show_more
             pack $p.ysbar -side right   -fill y -in $p
             pack $p.xsbar -side bottom  -fill x -in $p
@@ -19610,6 +19612,7 @@ namespace eval Refactor {
             }
         }
         $p.more configure -state disable
+        wm title .headers Tune
     }
     
     proc myputs {out_fd mydata} {
@@ -20616,13 +20619,14 @@ proc show_selected_tune_in_file {filename xref} {
   set p .headers
   if {![winfo exist $p]} {
       toplevel $p
+      wm title .headers Headers
       text $p.t -width 50 -height 10 -bg #f4ece0 \
                     -yscrollcommand {.headers.ysbar set} \
                     -xscrollcommand {.headers.xsbar set} \
                     -font $df -exportselection false
       scrollbar $p.ysbar -orient vertical -command {.headers.t yview}
       scrollbar $p.xsbar -orient horizontal -command {.headers.t xview}
-      button $p.more -text more... -font $df -bd 0\
+      button $p.more -text More... -font $df -bd 0\
                 -command Refactor::show_more -state disable
       pack $p.ysbar -side right   -fill y -in $p
       pack $p.xsbar -side bottom  -fill x -in $p
@@ -23280,7 +23284,7 @@ set hlp_live_editor \
      This feature may not work correctly if the PostScript header block\
      appearing before the first X: reference command is imported and\
      modifies the scale factor. (You may need to untick the option\
-     'use ps header' in the options menu.)\n\n\
+     'Use ps header' in the options menu.)\n\n\
      In the case that the score does not fit on a page, the top arrow buttons allow you\
      to go to the first, next, previous, or final page. The page number and number\
      of pages is shown as a fraction in the middle.\n\n\
