@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.283
-set runabc_date "(April 16 2021 14.20)"
+set runabc_version 2.289
+set runabc_date "(April 20 2021 18:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -100,6 +100,7 @@ if {[catch {package require Ttk} error]} {
 # Part 44.0               Midistructure
 # Part 45.0               big abc editor
 # Part 46.0               pgram
+# Part 47.0               get_geometry_of_all_toplevels
 
 
 
@@ -475,7 +476,13 @@ proc position_window {window} {
    global midi
    if {[string length $midi($window)] < 1} return
    if {$midi(autoposition) == 0} return
-   wm geometry $window $midi($window)
+   set n [scan $midi($window)  "%dx%d+%d+%d" w h x y]
+   if {$n < 4} return
+   set geom $midi($window)
+   if {![string match $window ".notice"]} {
+     set geom "+$x+$y"
+     }
+   wm geometry $window $geom
    }
 
 wm protocol . WM_DELETE_WINDOW {
@@ -617,7 +624,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
                 http://ifdo.ca/~seymour/runabc/top.html\n\
                 You should put these executables in the same folder where runabc is found.\
                 If the executables are in a different folder you need to specify their location\
-                by going to the 'Options/Abc executables' menu item (wrench icon).\n"
+                by going to the 'Options/ABC executables' menu item (wrench icon).\n"
         set result [check_file path_abcm2ps]
         if {[string first "not found" $result] >= 0} {
             append msg "\nabcm2ps was not found at $midi(path_abcm2ps) \n"
@@ -644,7 +651,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
     } else {
         if {$abcmidi == 1} {append msg "\nIf the abcmidi executables are\
                     already on your system, then you need to indicate their location by\
-                    going to the 'Options/Abc executables' menu item (wrench icon) and specifying\
+                    going to the 'Options/ABC executables' menu item (wrench icon) and specifying\
                     their location. If you do not have the executables, you will need to\
                     build them from the source code which you can find on\
                     http://ifdo.ca/~seymour/runabc/top.html or on sourceforge.net.\n"}
@@ -1142,8 +1149,7 @@ foreach ex  $execlist {
 
 
 # init global variables
-set types {{{abc files} {*.abc *.ABC}}
-    {{all} {*}}}
+set types {{{abc files} {*.abc *.ABC}}}
 set miditype {{{midi files} {*.mid *.MID *.midi *.kar *.KAR}}}
 set exec_out "This window shows messages produced by play and display commands."
 
@@ -1711,7 +1717,7 @@ $w.type.selector add radiobutton -label abc2svg -variable midi(ps_creator) \
 set w .abc.functions.cfg
 menubutton $w -image config-22 -text cfg -menu $w.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add command  -label "Abc executables" -command {show_config_page 1} -font $df
+$w.type add command  -label "ABC executables" -command {show_config_page 1} -font $df
 $w.type add command  -label "Check integrity" -command check_integrity -font $df
 $w.type add command  -label "Sanity check"    -command {runabc_diagnostic}  -font $df
 $w.type add command  -label "Midi player"     -command {show_config_page 2} -font $df
@@ -1791,7 +1797,7 @@ proc configure_buttons {} {
 global midi
 set buttonlist {play disp live editmenu utilmenu internals search midi toc playopt yaps abc2ps otherps cfg help quit}
 foreach but $buttonlist {
-   .abc.functions.$but configure -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+   .abc.functions.$but configure -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg) 
    }
 }
 
@@ -1924,7 +1930,7 @@ proc abcmidi_no_such_error {exefile} {
     set msg "Runabc could not find the executable $tail in the folder $pathname.\
             $tail is part of the abcMIDI package. If the package\
             is already on your system, then you need to indicate the path to the\
-            package by going to the 'Options/Abc executables' menu item (see wrench\
+            package by going to the 'Options/ABC executables' menu item (see wrench\
             icon)."
     show_error_message $msg
 }
@@ -1987,13 +1993,22 @@ proc play_action {} {
     update_console_page
 }
 
+proc valid_midiplayer {player} {
+if {[string length $player] < 1} {
+  messages "You need to specify a path to a midi player in
+ Options/Midi Player"
+  return 0
+  }
+return 1
+}
 
 proc play_midis {sel} {
     global midi exec_out files
     
-
+    set check "  Check Options/Midi Player."
     switch -- $midi(player) {
        0  {
+        if {[valid_midiplayer $midi(path_midiplayer_1)] == 0} return
         set cmd "exec [list $midi(path_midiplayer_1)] $midi(midiplayer_1_options) "
         switch -- $midi(midiplayer_1_prot) {
             0 {set cmd [concat $cmd [file join [pwd] X[lindex $sel 0].mid]]}
@@ -2002,6 +2017,7 @@ proc play_midis {sel} {
         }
       }
         1  {
+        if {[valid_midiplayer $midi(path_midiplayer_2)] == 0} return
         set cmd "exec [list $midi(path_midiplayer_2)] $midi(midiplayer_2_options) "
         switch -- $midi(midiplayer_2_prot) {
             0 {set cmd [concat $cmd [file join [pwd] X[lindex $sel 0].mid]]}
@@ -2010,6 +2026,7 @@ proc play_midis {sel} {
         }
        }
       2  {
+        if {[valid_midiplayer $midi(path_midiplayer_3)] == 0} return
         set cmd "exec [list $midi(path_midiplayer_3)] $midi(midiplayer_3_options) "
         switch -- $midi(midiplayer_3_prot) {
             0 {set cmd [concat $cmd [file join [pwd] X[lindex $sel 0].mid]]}
@@ -2018,6 +2035,7 @@ proc play_midis {sel} {
          }
        }
       3  {
+        if {[valid_midiplayer $midi(path_pmidilayer_4)] == 0} return
         set cmd "exec [list $midi(path_midiplayer_4)] $midi(midiplayer_4_options) "
         switch -- $midi(midiplayer_4_prot) {
             0 {set cmd [concat $cmd [file join [pwd] X[lindex $sel 0].mid]]}
@@ -2030,7 +2048,10 @@ proc play_midis {sel} {
     set cmd [concat $cmd &]
     set exec_out $exec_out\n\n$cmd
     #puts $cmd
-    eval $cmd
+    catch {eval $cmd} result
+    set exec_out $exec_out\n$result
+    if {[string first "couldn" $result] >= 0} {
+       messages $exec_out$check}
 }
 
 
@@ -6309,13 +6330,15 @@ proc show_config_page {subsection} {
     global active_sheet
     global cfg_subsection
     
+    #puts "show_config_page $subsection"
+
     remove_old_sheet
     if {$active_sheet == "config" && $subsection == $cfg_subsection} {
         set active_sheet "none"
         set cfg_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {26 1 20 4 30 10 23 29 22 12} }
+            1 { set w_list {45 26 1 20 4 30 10 23 29 22 12} }
             2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
             4 { set w_list {9 18 15 16 17 27} }
             5 { set w_list {31} }
@@ -7771,15 +7794,14 @@ frame $w
 for {set i 1} {$i <= 30} {incr i} {
     frame $w.$i
 }
-#deprecated
-#button $w.1.0 -text abc2ps -width 14 -command {setpath path_abc2ps}  -font $df
-#entry $w.1.1 -width 38 -relief sunken -textvariable midi(path_abc2ps) -font $df
-#pack $w.1.0 $w.1.1  -side left
-#bind .abc.cfg.1.1 <Return> {focus .abc.cfg.1}
+
+frame $w.45
+label $w.45.lab -text "ABC Executables" -font $df
+pack $w.45.lab -side left
 
 button $w.20.0 -text abcm2ps -width 14 -command {setpath path_abcm2ps}  -font $df
 entry $w.20.1 -width 38 -relief sunken -textvariable midi(path_abcm2ps) -font $df
-pack $w.20.0 $w.20.1  -side left
+pack $w.20.0 $w.20.1  -side left -padx 5
 bind .abc.cfg.20.1 <Return> {focus .abc.cfg.20}
 
 button $w.21.0 -text abc2abc -width 14 -command {setpath path_abc2abc}  -font $df
@@ -7799,17 +7821,17 @@ bind .abc.cfg.25.1 <Return> {focus .abc.cfg.25}
 
 button $w.26.0 -text "abcmidi folder" -width 14 -command {locate_abcmidi_executables} -font $df
 entry $w.26.1 -width 38 -relief sunken -textvariable midi(dir_abcmidi) -font $df
-pack $w.26.0 $w.26.1 -side left
+pack $w.26.0 $w.26.1 -side left -padx 5
 bind .abc.cfg.26.1 <Return> {focus .abc.cfg.26}
 
 button $w.22.0 -text abcmatch -width 14 -command {setpath path_abcmatch}  -font $df
 entry $w.22.1 -width 38 -relief sunken -textvariable midi(path_abcmatch) -font $df
-pack $w.22.0 $w.22.1  -side left
+pack $w.22.0 $w.22.1  -side left -padx 5
 bind .abc.cfg.22.1 <Return> {focus .abc.cfg.22}
 
 button $w.2.0 -text yaps -width 14  -command {setpath path_yaps} -font $df
 entry $w.2.1 -width 38 -relief sunken -textvariable midi(path_yaps) -font $df
-pack $w.2.0 $w.2.1  -side left
+pack $w.2.0 $w.2.1  -side left 
 bind .abc.cfg.2.1 <Return> {focus .abc.cfg.22}
 
 button $w.3.0 -text abc2midi -width 14  -command {setpath path_abc2midi} -font $df
@@ -7819,56 +7841,56 @@ bind .abc.cfg.3.1 <Return> {focus .abc.cfg.3}
 
 button $w.4.0 -text "PostScript viewer" -width 14  -command {setpath path_gv} -font $df
 entry $w.4.1 -width 38 -relief sunken -textvariable midi(path_gv) -font $df
-pack $w.4.0 $w.4.1  -side left
+pack $w.4.0 $w.4.1  -side left -padx 5
 bind .abc.cfg.4.1 <Return> {focus .abc.cfg.4}
 
 button $w.30.0 -text ghostscript -width 14  -command {setpath path_gs} -font $df
 entry $w.30.1 -width 38 -relief sunken -textvariable midi(path_gs) -font $df
-pack $w.30.0 $w.30.1  -side left
+pack $w.30.0 $w.30.1  -side left -padx 5
 bind .abc.cfg.30.1 <Return> {focus .abc.cfg.4}
 
-button $w.5.0 -text "midiplayer 1" -width 14  -command {setpath path_midiplayer_1} -font $df
+button $w.5.0 -text "Midi player 1" -width 14  -command {setpath path_midiplayer_1} -font $df
 entry $w.5.1 -width 42 -relief sunken -textvariable midi(path_midiplayer_1) -font $df
-pack $w.5.0 $w.5.1  -side left
+pack $w.5.0 $w.5.1  -side left -padx 5
 bind .abc.cfg.5.1 <Return> {focus .abc.cfg.5}
 
-button $w.6.0 -text "player 1 opts" -width 14 -command {}  -font $df
+button $w.6.0 -text "Player 1 opts" -width 14 -command {}  -font $df
 entry $w.6.1 -width 42 -relief sunken -textvariable midi(midiplayer_1_options) -font $df
-pack $w.6.0 $w.6.1  -side left
+pack $w.6.0 $w.6.1  -side left -padx 5
 bind .abc.cfg.6.1 <Return> {focus .abc.cfg.6}
 
-button $w.7.0 -text "midiplayer 2" -width 14 -command {setpath path_midiplayer_2} -font $df
+button $w.7.0 -text "Midi player 2" -width 14 -command {setpath path_midiplayer_2} -font $df
 entry $w.7.1 -width 42 -relief sunken -textvariable midi(path_midiplayer_2) -font $df
-pack $w.7.0 $w.7.1  -side left
+pack $w.7.0 $w.7.1  -side left -padx 5
 bind .abc.cfg.7.1 <Return> {focus .abc.cfg.7}
 
-button $w.8.0 -text "player 2 options" -width 14 -command {} -font $df
+button $w.8.0 -text "Player 2 options" -width 14 -command {} -font $df
 entry $w.8.1 -width 42 -relief sunken -textvariable midi(midiplayer_2_options) -font $df
-pack $w.8.0 $w.8.1  -side left
+pack $w.8.0 $w.8.1  -side left -padx 5
 bind .abc.cfg.8.1 <Return> {focus .abc.cfg.8}
 
 frame $w.36
-button $w.36.0 -text "midiplayer 3" -width 14  -command {setpath path_midiplayer_3} -font $df
+button $w.36.0 -text "Midi player 3" -width 14  -command {setpath path_midiplayer_3} -font $df
 entry $w.36.1 -width 42 -relief sunken -textvariable midi(path_midiplayer_3) -font $df
-pack $w.36.0 $w.36.1  -side left
+pack $w.36.0 $w.36.1  -side left -padx 5
 bind .abc.cfg.36.1 <Return> {focus .abc.cfg.36}
 
 frame $w.37
-button $w.37.0 -text "player 3 options" -width 14 -command {} -font $df
+button $w.37.0 -text "Player 3 options" -width 14 -command {} -font $df
 entry $w.37.1 -width 42 -relief sunken -textvariable midi(midiplayer_3_options) -font $df
-pack $w.37.0 $w.37.1  -side left
+pack $w.37.0 $w.37.1  -side left -padx 5
 bind .abc.cfg.37.1 <Return> {focus .abc.cfg.37}
 
 frame $w.40
-button $w.40.0 -text "midiplayer 4" -width 14  -command {setpath path_midiplayer_4} -font $df
+button $w.40.0 -text "Midi player 4" -width 14  -command {setpath path_midiplayer_4} -font $df
 entry $w.40.1 -width 42 -relief sunken -textvariable midi(path_midiplayer_4) -font $df
-pack $w.40.0 $w.40.1  -side left
+pack $w.40.0 $w.40.1  -side left -padx 5
 bind .abc.cfg.40.1 <Return> {focus .abc.cfg.40}
 
 frame $w.41
-button $w.41.0 -text "player 4 options" -width 14 -command {} -font $df
+button $w.41.0 -text "Player 4 options" -width 14 -command {} -font $df
 entry $w.41.1 -width 42 -relief sunken -textvariable midi(midiplayer_4_options) -font $df
-pack $w.41.0 $w.41.1  -side left
+pack $w.41.0 $w.41.1  -side left -padx 5
 bind .abc.cfg.41.1 <Return> {focus .abc.cfg.41}
 
 frame $w.39
@@ -7886,27 +7908,26 @@ pack  $w.39.lab $w.39.b0 $w.39.b1 $w.39.b2 $w.39.b3 -side left
 
 label $w.9.0 -text "gui font" -width 10  -font $df
 entry $w.9.1 -width 24 -relief sunken -textvariable midi(font_family) -font $df
-pack $w.9.0 $w.9.1 -side left
+pack $w.9.0 $w.9.1 -side left 
 bind $w.9.1 <Return> {
     change_font 0
     focus .abc.cfg.9.0}
 
 button $w.10.0 -text editor -width 14  -command {setpath path_editor} -font $df
 entry $w.10.1 -width 38 -relief sunken -textvariable midi(path_editor) -font $df
-pack $w.10.0 $w.10.1  -side left
+pack $w.10.0 $w.10.1  -side left -padx 5
 bind .abc.cfg.10.1 <Return> {focus .abc.cfg.10}
 
 label $w.23.0 -text "work folder" -width 16 -padx 2  -font $df
 entry $w.23.1 -width 38 -relief sunken -textvariable midi(abc_work_folder) -font $df
-pack $w.23.0 $w.23.1  -side left
+pack $w.23.0 $w.23.1  -side left -padx 5
 bind .abc.cfg.23.1 <Return> {focus .abc.cfg.23}
 
 button $w.29.0 -text "internet browser" -width 14  -font $df -command {setpath path_internet}
 entry $w.29.1 -width 38 -relief sunken -textvariable midi(path_internet) -font $df
-pack $w.29.0 $w.29.1 -side left
+pack $w.29.0 $w.29.1 -side left -padx 5
 bind .abc.cfg.29.1 <Return> {focus .abc.cfg.29}
 
-#button options midi(butborder) midi(butrelief) midi(butbg)
 frame $w.32
 label $w.32.lab -text "border width" -font $df
 radiobutton $w.32.b0 -text "0" -variable midi(butborder) \
@@ -7922,6 +7943,8 @@ radiobutton $w.32.b4 -text "4" -variable midi(butborder) \
 radiobutton $w.32.b5 -text "5" -variable midi(butborder) \
    -relief flat -value 5 -font $df
 pack $w.32.lab $w.32.b0 $w.32.b1 $w.32.b2 $w.32.b3 $w.32.b4 $w.32.b5 -side left
+
+
 
 frame $w.33
 label $w.33.lab -text "button relief" -font $df
@@ -8120,7 +8143,7 @@ set hlp_overview "You are running runabc.tcl version $runabc_version $runabc_dat
         PostScript file viewer and midi file player and many other executables.\
         If you are running the program for the first time, you need to specify\
         the path name to these executables in the configuration property sheet. \
-        Click the 'Options/Abc executables' menu button and then the help button for\
+        Click the 'Options/ABC executables' menu button and then the help button for\
         further instructions.\n\n\
         Once you have properly configured the program, use the 'file' \
         button to select the input abc file. This is a button with a picture\
@@ -13316,7 +13339,7 @@ proc ppqn_adjustment_window {} {
 
 set hlp_midishow "In order to use this tool you require midi2abc\
         version 3.02 or higher and midicopy 1.22 or higher. Be sure to\
-        specify the path to midicopy in the 'Options/Abc executables' page.\n\n\
+        specify the path to midicopy in the 'Options/ABC executables' page.\n\n\
         The function will display the selected MIDI file in a piano\
         roll form in a resizeable separate window.\n\n\
         Vertical lines indicate beat numbers as determined by the\
@@ -24425,9 +24448,10 @@ namespace eval midisummary {
    update_console_page
    return $midi_info
    } else {
-   set msg "Unable to find file $midi(midifilein). Use the browse \
-   button to select the active midi file."
-   show_message_page $msg word
+   set msg "Unable to find the input file $midi(midifilein). Use the browse \
+   button in the msummary window in order to select the input midi file."
+   #show_message_page $msg word
+   messages $msg
    return ""
    }
  }
@@ -24949,8 +24973,21 @@ proc midi_structure_window {} {
   position_window $w
   set entrywidth [expr int(800/double($midi(font_size)))]
   set wm $w.menuline
+  set wm1 $w.menuline1
+  frame $wm1
   frame $wm
 
+label $wm1.fileinlab -text  "input midi file" -font $df
+button $wm1.fileinbr -text "browse" -command {
+   set midi(midifilein) [midi_file_browser]
+   show_prog_structure} -font $df
+entry $wm1.fileinent -width 45 -textvariable midi(midifilein) -font $df
+grid $wm1.fileinlab $wm1.fileinbr $wm1.fileinent
+bind $wm1.fileinent <Return> {focus .midistructure.menuline1.fileinlab
+                              show_prog_structure
+                            update_midi_summary}
+$wm1.fileinent xview moveto 1.0
+grid $wm1 -columnspan 2 -sticky nw
 
   button $wm.config -text config -font $df -width 7 -relief flat \
    -command {set_preferences}
@@ -24977,13 +25014,8 @@ the left\n will be played. If nothing is\n checked, everything is played."
 
   button $wm.help -text help -font $df -command {show_message_page $hlp_midistructure word}
 
-  entry $w.fileinent -width $entrywidth -textvariable midi(midifilein) -font $df\
-    -state readonly 
   label $w.txt -text ""
   label $w.beat -text beat -font $df
-  $w.fileinent xview moveto 1.0
-  bind $w.fileinent <Return> {focus .midistructure.file}
-  grid $w.fileinent -columnspan 2
   pack  $wm.config $wm.play $wm.plays $wm.playx $wm.speedlabel $wm.speed $wm.save $wm.help -side left
   grid $wm -columnspan 2 -sticky nw
     
@@ -25148,6 +25180,13 @@ proc show_prog_structure {} {
   if {![winfo exist .midistructure]} return
 
 
+  if {![file exist [list $midi(midifilein)]]} {
+    set msg "Cannot find input midi file $midi(midifilein)
+Use the browse button in the midistructure window to\
+locate the input midi file."
+    messages $msg
+    return
+    }
   set cmd "exec [list $midi(path_midi2abc)] [list $midi(midifilein)] -midigram"
   catch {eval $cmd} pianoresult
   set pianoresult  [split $pianoresult \n]
@@ -26202,6 +26241,7 @@ if {[llength $limits] > 1} {
 }
 
                
+# Part 47.0               get_geometry_of_all_toplevels
 
 proc get_geometry_of_all_toplevels {} {
   global midi
@@ -26215,12 +26255,14 @@ proc get_geometry_of_all_toplevels {} {
                ".drumtool" "cfg.drumtool" "headers" "pitchinterval"
                ".histmatches" ".m2ps" ".live" ".preferred_chords"
                ".notegram" ".preferences" ".midistructure" ".pgram" }
+  set x x
   foreach top $toplevellist {
     if {[winfo exist $top]} {
       set g [wm geometry $top]
+      #puts $g
       scan $g "%dx%d+%d+%d" w h x y
-      #puts "$top $x $y"
-      set midi($top) +$x+$y
+      #puts "$top $w $h $x $y"
+      set midi($top) $g
       }
    }
   }
