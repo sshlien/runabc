@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.289
-set runabc_date "(April 20 2021 18:40)"
+set runabc_version 2.295
+set runabc_date "(April 29 2021 09:35)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -13523,10 +13523,10 @@ proc show_events {midifile} {
     
     
     #puts "show_events: $midifile"
-    if {[file exist $midifile] == 0} {
+    if {[file isfile $midifile] == 0} {
         .piano.txt configure -text "can't open file $midifile"\
                 -foreground red -font $df
-        puts "show_events cannot open $midifile"
+        messages "Cannot open $midifile. Try browsing to the file."
         return
     }
     
@@ -15690,20 +15690,20 @@ proc mftextwindow {midifilein nofile} {
         toplevel $f
         position_window ".mftext"
         frame $f.1
-
-    label $f.fillab -text $midifilein  -font $df -width 60
+    label $f.1.lab -text "input midi file" -font $df
+    entry $f.1.filent -textvariable midi(midifilein)  -font $df -width 35 
     button $f.1.browse -text browse -font $df -command {
              set midifilein [midi_file_browser]
              output_mftext [list $midifilein]
-	     .mftext.fillab configure -text $midifilein
              }
     button $f.1.help -text help -font $df\
             -command {show_message_page $hlp_mftext word}
-    pack $f.fillab
-    pack $f.1.browse $f.1.help -side left
+    pack $f.1.lab  $f.1.browse $f.1.filent $f.1.help -side left
     pack $f.1
     frame $f.2
     pack $f.1 $f.2 -side top
+    bind $f.1.filent <Return> {focus .mftext
+                               output_mftext [list $midi(midifilein)]} 
 
 
         set f .mftext.4
@@ -15733,7 +15733,12 @@ proc mftextwindow {midifilein nofile} {
        pack .mftext.1 -before .mftext.2 
        }
 
-    output_mftext [list $midifilein]
+    if {[file isfile $midifilein]} {
+       output_mftext [list $midifilein]
+      } else {
+       show_message_page "Unable to open input file $midifilein. Select one using \
+                the browse button on the top.\n" word
+     }
 
 }
 
@@ -24439,7 +24444,7 @@ namespace eval midisummary {
  global midilength
  global exec_out
  set midilength 0
- set fileexist [file exist $midi(midifilein)]
+ set fileexist [file isfile $midi(midifilein)]
  if {$fileexist} {
    set exec_options "[list $midi(midifilein) -stats]"
    set cmd "exec [list $midi(path_midi2abc)] $exec_options"
@@ -25179,8 +25184,7 @@ proc show_prog_structure {} {
 
   if {![winfo exist .midistructure]} return
 
-
-  if {![file exist [list $midi(midifilein)]]} {
+  if {![file isfile $midi(midifilein)]} {
     set msg "Cannot find input midi file $midi(midifilein)
 Use the browse button in the midistructure window to\
 locate the input midi file."
