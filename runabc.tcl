@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.295
-set runabc_date "(April 29 2021 09:35)"
+set runabc_version 2.296
+set runabc_date "(May 04 2021 15:30)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1738,8 +1738,10 @@ $w.type add checkbutton -label "Help" -font $df -command {show_message_page $hlp
 if {$tcl_platform(platform) == "windows"} {
     $w.type add command  -label "Register .abc files" -command associate_abc -font $df}
 
-button .abc.functions.help -image help-22 -text help -command contexthelp -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg)
-
+menubutton .abc.functions.help -image help-22 -text help -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.help.actions
+menu .abc.functions.help.actions -tearoff 0
+.abc.functions.help.actions add command -label "Context Help" -command contexthelp -font $df
+.abc.functions.help.actions add command -label "Web help" -font $df -command webhelp
 
 tooltip::tooltip .abc.functions.toc  "TOC"
 tooltip::tooltip .abc.functions.editmenu "Edit menu"
@@ -2163,7 +2165,7 @@ proc copy_selected_tunes_for_display {sel filename} {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $edithandle]} else {
                 set line  [get_next_line $edithandle]}
-            if {[string index $line 0] == "X"} break;
+            if {[string first "X:" $line 0] == 0} break;
             puts $outhandle $line
         }
         puts $outhandle "\n"
@@ -2621,7 +2623,7 @@ proc title_index {abcfile} {
     set midi_header {}
     set ps_header {}
     while {[gets $titlehandle line] >= 0} {
-        if {[string index $line 0] == "X"} {
+        if {[string first "X:" $line 0] == 0} {
             regexp $pat $line number
             if {$number != 0} {set number [string trimleft $number 0]}
             # 2017-05-05 set filepos
@@ -2846,7 +2848,7 @@ proc get_next_line {handle} {
 # finds X: command or else returns nothing if eof
 proc find_X_code {handle} {
     set line 1
-    while {[string index $line 0] != "X" && [eof $handle] !=1} {
+    while {[string first "X:" $line 0] != 0 && [eof $handle] !=1} {
         set line [get_nonblank_line $handle]
     }
     return $line
@@ -2916,7 +2918,7 @@ proc tune2Xtmp {tunes abcfile} {
         # The procedure expects to see an X command here. Otherwise it is
         # an error.
         set line [find_X_code $inp_fd]
-        if {[string index $line 0] == "X"} {
+        if {[string first "X:" $line 0] == 0} {
             puts $out_fd $line
             if {[string length $midi_header] > 0 && $midi(use_midi_header)} {
                 puts -nonewline $out_fd $midi_header
@@ -2937,7 +2939,7 @@ proc tune2Xtmp {tunes abcfile} {
             return $outlist
         }
         
-        while {[string length $line] > 0 && [string index $line 0] != "X"} {
+        while {[string length $line] > 0 && [string first "X:" $line 0] != 0} {
             set code [string range $line 0 1]
             switch -- $code {
                 M: {regexp $pat $line meter
@@ -3055,7 +3057,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
                 set line  [get_nonblank_line $inhandle]} else {
                 set line  [get_next_line $inhandle]
 	        }
-            if {[string index $line 0] == "X"} break;
+            if {[string first "X:" $line 0] == 0} break;
             if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
             puts $outhandle $line
 	    set loc [string first "V:" $line]
@@ -3134,7 +3136,7 @@ proc create_tmp_voiced_abc {tunes} {
         set loc  $fileseek($ref)
         seek  $edit_handle $loc
         set line [find_X_code $edit_handle]
-        if {[string index $line 0] == "X"} {
+        if {[string first "X:" $line 0] == 0} {
             scan $line "X:%d" xref
             lappend xreflist $xref
         }
@@ -3285,7 +3287,7 @@ proc copy_selection_to_file {tunes abcfile outfile} {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $edithandle]} else {
                 set line  [get_next_line $edithandle]}
-            if {[string index $line 0] == "X"} break;
+            if {[string first "X:" $line 0] == 0} break;
             puts $outhandle $line
         }
         puts $outhandle ""
@@ -3335,7 +3337,7 @@ proc split_abc_file {} {
   set filename ""
   set n 0
   while {[gets $titlehandle line] >= 0} {
-        if {[string index $line 0] == "X"} {
+        if {[string first "X:" $line 0] == 0} {
             regexp $numpat $line number
             if {$number != 0} {set number [string trimleft $number 0]}
 
@@ -3553,7 +3555,7 @@ proc copy_selected_files {sel access renumber filename} {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $edithandle]} else {
                 set line  [get_next_line $edithandle]}
-            if {[string index $line 0] == "X"} break;
+            if {[string index "X:" $line 0] == 0} break;
             puts $outhandle $line
         }
         puts $outhandle "\n"
@@ -3602,7 +3604,7 @@ proc concat_parts {tunes abcfile outfile} {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $edithandle]} else {
                 set line  [get_next_line $edithandle]}
-            if {[string index $line 0] == "X"} break;
+            if {[string first "X:"  $line 0] == 0} break;
             if {$first_tune} {
                 #           first part
                 if {[string index $line 0] == "K" && $body == 0} {
@@ -5063,7 +5065,7 @@ proc play_from_edit_window {mode abctxtw} {
         set next [string index $value 1]
         if {[string first $initial ABCDEFGHIKLMNOPQRSTUVWwXZ]
             > 0 && $next == ":" } {
-            if {[string compare $initial "X"] != 0} {puts $out_fd $value}
+            if {[string first "X:" $value 0] != 0} {puts $out_fd $value}
         } elseif {$initial == "%"} {
             puts $out_fd $value}
     }
@@ -8810,6 +8812,15 @@ For most single voiced abc tunes, the input voice name or number\
 
 
 # Help
+
+proc webhelp {} {
+global midi
+set url "https://runabc.sourceforge.io/"
+set cmd "exec [list $midi(path_internet)] $url &"
+eval $cmd
+}
+
+
 proc contexthelp {} {
     global active_sheet cfg_subsection midi_subsection
     global hlp_overview hlp_config_1 hlp_config_2
@@ -9421,7 +9432,7 @@ proc search_string_in_title {abcfile filenum} {
         set initialchar [string index $line 0]
         switch -- $srch {
             X {
-                if { $initialchar == "X"} {
+                if { [string first "X:" $line 0]  == 0} {
                     set number [string range $line 2 10]
                     set srch T
                     incr loc
@@ -10054,7 +10065,7 @@ proc copy_matched_tune {abchandle} {
     if {[info exist barloc]} {unset barloc}
     while {[string length $line] > 0 } {
         set line  [gets $abchandle]
-        if {[string index $line 0] == "X"} break;
+        if {[string first "X:"  $line 0] == 0} break;
         .matcher.notice.t insert end $line
         
         set initial [string index $line 0]
@@ -10688,7 +10699,7 @@ proc create_matcher_template_for {grouper_handle seqno} {
     puts $outhandle "X: $seqno"
     while {[string length $line] > 0} {
         set line [get_nonblank_line $grouper_handle]
-        if {[string index $line 0] == "X"} break;
+        if {[string first "X:" $line 0] == 0} break;
         puts $outhandle $line
     }
     puts $outhandle ""
@@ -12779,7 +12790,7 @@ proc extract_all_voices {tunes abcfile} {
         if {$midi(blank_lines)} {
             set line  [get_nonblank_line $edithandle]} else {
             set line  [get_next_line $edithandle]}
-        if {[string index $line 0] == "X"} break;
+        if {[string first "X:" $line 0] == 0} break;
         # search for voice id
         if {[regexp $pat $line result sub]} {
             if {![info exist voicedata($sub)]} {
@@ -20671,7 +20682,7 @@ proc show_selected_tune_in_file {filename xref} {
                $p.t insert end $line\n
                while {[string length $line] > 0 } {
                set line  [gets $abchandle]
-               if {[string index $line 0] == "X"} break;
+               if {[string first "X:" $line 0] == 0} break;
                $p.t insert end $line\n
                }
         }
@@ -21115,7 +21126,7 @@ foreach i $sel {
          set line [get_nonblank_line $in_fd]} else {
          set line [get_next_line $in_fd]
          }
-      if {[string index $line 0] == "X"} break
+      if {[string first "X:" $line 0] == 0} break
       puts $out_fd $line
       }
   }
