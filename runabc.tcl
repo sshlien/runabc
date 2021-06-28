@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.296
-set runabc_date "(May 04 2021 15:30)"
+set runabc_version 2.301
+set runabc_date "(June 28 2021 13:15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1070,6 +1070,7 @@ proc midi_init {} {
     set midi(livesashhor) 630
 
     set midi(use_midi_header) 1
+    set midi(noMIDI) 0
     set midi(use_ps_header) 1
 
     set midi(mftextunits) 2
@@ -1637,6 +1638,7 @@ button .abc.functions.toc -text toc -image content-22 -command show_titles_page 
 set w .abc.functions.playopt
 menubutton $w -text "play options" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
+$w.type add checkbutton -label "do not add %%MIDI cmds" -font $df -variable midi(noMIDI)
 $w.type add checkbutton -label "Use midi header" -font $df -variable midi(use_midi_header)
 $w.type add checkbutton -label "Override tempo" -font $df -variable midi(ignoreQ) -command disable_enable_tempo_controller
 $w.type add command  -label Transposition/tuning  -command {show_midi_page 1} -font $df
@@ -1964,6 +1966,12 @@ proc play_action {} {
     catch {eval $cmd}
     
     set sel [title_selected]
+    if {$midi(noMIDI)} {
+       # just do a straight copy
+       set sel [copy_selection_to_file $sel $midi(abc_open) X.tmp]
+       play_Xtmp_output $sel
+       return
+       }
     if {$midi(double)} {
         if {$nvoices == 0} {set sel [create_tmp_voiced_abc $sel]
         } else {
@@ -1973,6 +1981,12 @@ proc play_action {} {
     } else {
         set sel [tune2Xtmp $sel $midi(abc_open)]
     }
+    play_Xtmp_output $sel
+}
+
+proc play_Xtmp_output {sel} {
+    global midi exec_out
+    global files
     set cmd "exec [list $midi(path_abc2midi)]  X.tmp"
     if {$midi(barflymode)} {append cmd " -BF $midi(stressmodel)"}
     if {$midi(tuning) != 440} {append cmd " -TT $midi(tuning)"}
@@ -2049,7 +2063,6 @@ proc play_midis {sel} {
 
     set cmd [concat $cmd &]
     set exec_out $exec_out\n\n$cmd
-    #puts $cmd
     catch {eval $cmd} result
     set exec_out $exec_out\n$result
     if {[string first "couldn" $result] >= 0} {
@@ -3268,7 +3281,6 @@ proc copy_selection_to_file {tunes abcfile outfile} {
     global fileseek midi exec_out
     global copyfromloc copytoloc
 
-    
     if {[string compare [file tail $abcfile] [file tail $outfile]] == 0} return
     set edithandle [open $abcfile r]
     fconfigure $edithandle -encoding $midi(encoder)
@@ -3276,11 +3288,14 @@ proc copy_selection_to_file {tunes abcfile outfile} {
     fconfigure $outhandle -encoding $midi(encoder)
     
     set exec_out "copying $tunes to $outfile"
+    set outlist ""
     foreach i $tunes {
         set loc $fileseek($i)
         set copyfromloc $loc
         seek $edithandle $loc
         set line [find_X_code $edithandle]
+        scan $line "X:%d" refno
+        lappend outlist $refno
         puts $outhandle $line
         while {[string length $line] > 0 } {
             set copytoloc [tell $edithandle]
@@ -3296,6 +3311,8 @@ proc copy_selection_to_file {tunes abcfile outfile} {
     close $edithandle
     close $outhandle
     if {$midi(bell_on)} bell
+    #puts "outlist = $outlist"
+    return $outlist
 }
 
 
@@ -3555,7 +3572,7 @@ proc copy_selected_files {sel access renumber filename} {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $edithandle]} else {
                 set line  [get_next_line $edithandle]}
-            if {[string index "X:" $line 0] == 0} break;
+            if {[string first "X:" $line 0] == 0} break;
             puts $outhandle $line
         }
         puts $outhandle "\n"
@@ -8481,7 +8498,12 @@ Midi drone control\n\n\
 set hlp_playopt " Play Options\n\n\
         There is context help for most of the options in this menu with some\
 	exceptions.\n\n\
-        Use midi header: if checked all the midi commands beginning with %%MIDI\
+        Normally, the play button will insert %%MIDI commands into the\
+        the extracted abc tune to allow modifying the MIDI instruments.\
+        In some cases, this may not be desirable. The menu checkbutton\
+        'do not add %%MIDI cmds' will block this action.
+
+Use midi header: if checked all the midi commands beginning with %%MIDI\
         occurring in the beginning of the abc file (before the first X:)\
         will be inserted in the selected tune before it is played.\n\n\
 	Random voice arrangement: will assign random midi programs to the\
@@ -10939,11 +10961,11 @@ bind . <Alt-s> {runabc_diagnostic}
 bind . <Alt-S> {runabc_diagnostic}
 
 set abcmidilist {path_abc2midi 4.48\
-            path_abc2abc 2.13\
-            path_yaps 1.86\
-            path_midi2abc 3.47\
+            path_abc2abc 2.15\
+            path_yaps 1.87\
+            path_midi2abc 3.49\
             path_midicopy 1.37\
-            path_abcmatch 1.77\
+            path_abcmatch 1.79\
             path_abcm2ps 8.14.11}
 global abcmidilist
 
@@ -23044,9 +23066,8 @@ proc update_musicscore {tunecontent} {
     puts $out_fd $atunecontent
     close $out_fd
 
-    set exec_out "exec [list $midi(path_abcm2ps)] X.tmp -A -j 2 -s $midi(livescale)   << ..."
-    #catch {exec  [list $midi(path_abcm2ps)] X.tmp -A -s $midi(livescale)  << $atunecontent} result
-    set cmd "exec  [list $midi(path_abcm2ps)] X.tmp -A -j 2 -s $midi(livescale)  << $atunecontent" 
+    set exec_out "exec [list $midi(path_abcm2ps)] X.tmp -A -j 2 -s $midi(livescale)"
+    set cmd "exec  [list $midi(path_abcm2ps)] X.tmp -A -j 2 -s $midi(livescale) " 
     catch {eval $cmd} result
     append exec_out "\n$result"
     set cmd "file delete [glob -nocomplain *.pgm]"
@@ -23064,6 +23085,7 @@ proc update_musicscore {tunecontent} {
     extract_notes_from_ps 
     if {$midi(livehotspots)} {show_objects 1} 
     set live_refreshed 1
+    update_console_page
 }
 
 
