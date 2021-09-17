@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.301
-set runabc_date "(June 28 2021 13:15)"
+set runabc_version 2.306
+set runabc_date "(September 17 2021 10:50)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1049,6 +1049,7 @@ proc midi_init {} {
     #  g2v
     set midi(g2v_clipboard) 0
     set midi(mode_guess) mse
+    set midi(preserveGchords) 0
     
     set midi(donotshow) 0
     set midi(index_by_position) 0
@@ -1647,6 +1648,7 @@ $w.type add command  -label "Advanced settings" -command {show_midi_page 8} -fon
 $w.type add command  -label  Drumkit     -command drum_editor -font $df
 $w.type add command  -label Voices       -command show_voice_page  -font $df
 $w.type add command  -label "Random voice arrangement"  -command random_voice_arrangement  -font $df
+$w.type add command  -label "Identical Voice arrangement"  -command same_voice_arrangement  -font $df
 $w.type add command  -label Help -command {show_message_page $hlp_playopt word} -font $df
 
 
@@ -6695,6 +6697,7 @@ label $w.8.lab -text "drums voice id" -font $df
 entry $w.7.ent -width 10 -textvariable gchordvoiceid -font $df
 entry $w.8.ent -width 10 -textvariable drumsvoiceid -font $df
 checkbutton $w.9.but -text "use drum map" -font $df -variable midi(drummap)
+checkbutton $w.9.pre -text "preserve gchords" -font $df -variable midi(preserveGchords)
 
 label $w.msg.txt -text "" -font $df
 radiobutton $w.2.0 -text "output to clipboard"  -variable midi(g2v_clipboard) \
@@ -6710,7 +6713,7 @@ pack $w.5.lab $w.5.ent -side left -anchor w
 pack $w.6.lab $w.6.ent -side left -anchor w
 pack $w.7.lab $w.7.ent -side left -anchor w
 pack $w.8.lab $w.8.ent -side left -anchor w
-pack $w.9.but -side left -anchor w
+pack $w.9.but $w.9.pre -side left -anchor w
 pack $w.2.0 $w.2.1 -side left
 pack $w.3.0 $w.3.1 $w.3.2 -side left
 pack $w.4.go -side left
@@ -7603,6 +7606,15 @@ for {set i 1} {$i < 17} {incr i} {
    set v voice$i
    set num [expr int(rand()*103)]
    set midi($v) [lindex $midiproglist $num]
+   }
+   map_midi_to_voices
+}
+
+proc same_voice_arrangement {} {
+global midi
+for {set i 1} {$i < 17} {incr i} {
+   set v voice$i
+   set midi($v) $midi(voice1)
    }
    map_midi_to_voices
 }
@@ -8507,7 +8519,9 @@ Use midi header: if checked all the midi commands beginning with %%MIDI\
         occurring in the beginning of the abc file (before the first X:)\
         will be inserted in the selected tune before it is played.\n\n\
 	Random voice arrangement: will assign random midi programs to the\
-	voices in the voices frame exposed with the above menu item.
+	voices in the voices frame exposed with the above menu item.\n\n\
+        Identical voice arrangement: will assign each channel to the\
+        the same program as channel 1. 
 	"
 
 
@@ -13153,7 +13167,7 @@ proc check_midi2abc_and_midicopy_versions {} {
     set result [get_version_number $midi(path_midi2abc)]
     #puts $result
     set err [scan $result "%f" ver]
-    set msg "You need midi2abc.exe version 3.41 or higher"
+    set msg "You need midi2abc version 3.41 or higher"
     if {$err == 0} {return $msg}
     if {$ver < 3.41} {tk_messageBox -message $msg
 	              return $msg}
@@ -18112,7 +18126,6 @@ namespace eval gcstring {
                         set chordstr $chordstr$note
                     }
                     set chordstr $chordstr\]
-                    #      puts $chordstr
                     lappend gchord_output $chordstr$n
                 }
                 f {
@@ -18631,20 +18644,24 @@ proc process_line {line} {
     set curlypat {\{[^\}]*\}}
     set chordpat {(\[[^\]\[]*\])(/?[0-9]*|[0-9]*/*[0-9]*)}
     set instructpat {![^!]*!}
+    set instructpat2 {\[I:(.*?)\]}
     set tupletpat  {\(\d(\:\d)*}
-    set sectpat {\[[0-9]+}
+    set sectpat {[-,0-9]+}
+
+    #puts "process_line $line"
     
     global expandedchords
     global expandeddrums
     global bodytext
     global activevoice
-    global preservegchord
+    #global preservegchord
     global dvoice
     global chosenvoice chosenvoicefound
+    global midi
     
     set gcgen::expandedchords_for_line ""
     set drumgen::drumnotes_for_line ""
-    if {$preservegchord == 1} {
+    if {$midi(preserveGchords) == 1} {
         set bodytext $bodytext$line\n
     } else {
         # remove all guitar chords and print the result.
@@ -18714,8 +18731,6 @@ proc process_line {line} {
         }
 
 
-        
-        
         set success [regexp -indices -start $i $instructpat $line location]
         # search for embedded instructions like !fff!
         if {$success} {
@@ -18726,6 +18741,18 @@ proc process_line {line} {
                 set i [expr $loc2+1]
                 continue}
         }
+
+       set success [regexp -indices -start $i $instructpat2 $line location]
+      # search for embedded instructions like [I:MIDI program 3]
+        if {$success} {
+         set loc1  [lindex $location 0]
+         set loc2  [lindex $location 1]
+         if {$loc1 == $i} {
+#    skip !fff! and similar instructions embedded in body
+           gv_process_instruction $location $line
+           set i [expr $loc2+1]
+           continue}
+         }
         
         set success [regexp -indices -start $i $notepat $line location]
         # search for notes
@@ -18771,6 +18798,17 @@ proc process_line {line} {
     }
 }
 
+proc gv_process_instruction {location line} {
+set instruct [string range $line [lindex $location 0] [lindex $location 1]]
+set midiloc [string first MIDI $instruct]
+if {$midiloc >= 0} {
+   set instruct [string range $instruct 7 end-1]
+   if {[string first gchord $instruct] >= 0} {
+        set instruct [string range $instruct 8 end]
+        set gcstring::gcstringlist [gcstring::scangchordstring $instruct]
+        }
+   }
+}
 
 # set flag to adjust the duration of the next notes enclosed in tuplet
 proc gv_process_tuplet {location line} {
@@ -23623,7 +23661,7 @@ set curlypat {\{[^\}]*\}}
 set chordpat {\[[^\]\[]*\]}
 set instructpat {![^!]*!}
 set tupletpat  {\(\d(\:\d)*}
-set sectpat {\[[0-9]+}
+set sectpat {[-,0-9]+}
 
 global bar_accumulator beat_accumulator
 global bodytext
@@ -23699,6 +23737,19 @@ while {$i < [string length $line]} {
   if {$success} {
    set loc1  [lindex $location 0]
    set loc2  [lindex $location 1]
+   gv_process_instruction $location $line
+   if {$loc1 == $i} {
+#    skip !fff! and similar instructions embedded in body
+     set i [expr $loc2+1]
+     continue}
+   }
+
+ set success [regexp -indices -start $i $instructpat2 $line location]
+# search for embedded instructions like [I:MIDI program 3]
+  if {$success} {
+   set loc1  [lindex $location 0]
+   set loc2  [lindex $location 1]
+   gv_process_instruction $location $line
    if {$loc1 == $i} {
 #    skip !fff! and similar instructions embedded in body
      set i [expr $loc2+1]
