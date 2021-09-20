@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.306
-set runabc_date "(September 17 2021 10:50)"
+set runabc_version 2.308
+set runabc_date "(September 20 2021 13:20)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -17940,6 +17940,7 @@ namespace eval gchordspace {
         dim7 {0 3 6 9}
         9 {0 4 7 10 2}
         m9 {0 3 7 10 2}
+        mb9 {0 3 7 10 2}
         maj9 {0 4 7 11 2}
         M9 {0 4 7 11 2}
         11 {0 4 7 10 2 5}
@@ -18225,7 +18226,7 @@ namespace eval gcgen {
         set space " "
         if {![info exist gcstring::gcstringlist]} return
         if {![info exist gchord_output]} return
-#        puts "gchordaccumulator bar_accumulator = $gchordaccumulator $gchordindex $bar_accumulator"
+        #puts "gchordaccumulator bar_accumulator = $gchordaccumulator $gchordindex $bar_accumulator"
         if {$bar_accumulator < $gchordaccumulator} return
         while {[set dif [expr $bar_accumulator - $gchordaccumulator]] > 0} {
             if {$gchordindex >= [llength $gcstring::gcstringlist]} return
@@ -18854,20 +18855,26 @@ proc gv_process_note {token} {
     global tupletscalefactor
     global bar_accumulator
     set durpatf {([0-9])\/([0-9])}
-    set durpatn {[0-9]}
+    set durpatn {[0-9]+}
     set durpatd {\/([0-9])}
     set dur2 {/+}
     if {[regexp $durpatf $token match val1 val2]} {
         set increment  [expr $gchordsetup::noteunits*$val1/$val2]
+        #puts "gv_process_note: val1 = $val1 val2 = $val2 "
     } elseif {
         [regexp $durpatd $token val1 val2]} {
         set increment  [expr $gchordsetup::noteunits/$val2]
+        #puts "gv_process_note: val1 = $val1 val2 = $val2 "
     } elseif {
         [regexp $durpatn $token val]} {
         set increment  [expr $gchordsetup::noteunits*$val]
+        #puts "gv_process_note:  val = $val"
     } elseif {
         [regexp $dur2 $token val]} {
-        set increment  [expr $gchordsetup::noteunits/2]
+        set rep [string length $val]
+        set fac [expr int(pow(2,$rep))]
+        set increment  [expr $gchordsetup::noteunits/$fac]
+        #puts "token = $token rep = $rep fac = $fac increment = $increment"
     } else {
         set increment $gchordsetup::noteunits
     }
@@ -18877,6 +18884,7 @@ proc gv_process_note {token} {
        if {$triplet_running > $tuplenotes} {set triplet_running 0}
        }
 
+    #puts "gv_process_note: token = $token increment = $increment"
     incr bar_accumulator $increment
     return
 }
@@ -18935,6 +18943,8 @@ proc gv_process_tune {tunestring} {
     
     foreach line [split $tunestring \n]  {
         if {$debug > 0} {puts ">>$line"}
+        #%%sep gets placed in the wrong place so just get rid of it
+        if {[string first %%sep $line] == 0} continue
         if {[string length $line] < 1} continue
         if {[string first "%%MIDI" $line] >= 0} {
             if {[string first "gchord" $line] >=0} {
@@ -23845,7 +23855,7 @@ proc gc_process_note {token} {
 
   incr bar_accumulator $increment
   incr beat_accumulator $increment
-  #puts "$token $pitchval $bar_accumulator $increment $pitchval"
+  #puts "gc_process_note: $token $pitchval $bar_accumulator $increment $pitchval"
   incr pitcharray($pitchval) $increment
   return 
  }
