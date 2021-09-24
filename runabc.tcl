@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.308
-set runabc_date "(September 20 2021 13:20)"
+set runabc_version 2.310
+set runabc_date "(September 23 2021 22:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -3052,6 +3052,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
        }
     }
 
+
     set inhandle [open $midi(abc_open) r]
     set outhandle [open $fileout w]
     set exec_out "copying $sel to $fileout"
@@ -3064,9 +3065,6 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
         if {$midi(ignoreQ) || [info exist hasfield(Q)] == 0} {
            puts $outhandle "Q: $midi(beatsize) = $midi(tempo)"
            }
-        if {$midi(nogchords) == 0} {
-           puts $outhandle "%%MIDI gchordon"
-           }
         while {[string length $line] > 0 } {
             if {$midi(blank_lines)} {
                 set line  [get_nonblank_line $inhandle]} else {
@@ -3075,8 +3073,17 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
             if {[string first "X:" $line 0] == 0} break;
             if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
             puts $outhandle $line
-	    set loc [string first "V:" $line]
+            if {[string first "K:" $line] == 0 && $addmidi(0) == 1} {
+                 puts $outhandle "%%MIDI program $midi(program)"
+		 puts $outhandle "%%MIDI control 7 85"
+                 if {$midi(nogchords) == 0} {puts $outhandle "%%MIDI chordprog $midi(chordprog) octave=$midi(chord_octave)"}
+		 set addmidi(0) 0
+                if {$midi(nogchords) == 0} {
+                  puts $outhandle "%%MIDI gchordon"
+                  }
+	        }
 # The procedure does not handle V: enclosed in brackets
+	    set loc [string first "V:" $line]
 	    if {$loc ==0 && $midi(midi_chk)} {
               incr loc 2
 	      set payload [string range $line $loc end]
@@ -3088,19 +3095,13 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
                    scan $line "V:%d" vc
 	           }
 
-	      if {$addmidi($vc)} {
+             if {$addmidi($vc)} {
                  puts $outhandle "%%MIDI program $midi(voice$vc)"
 		 puts $outhandle "%%MIDI control 7 $midi(lvoice$vc)"
 		 puts $outhandle "%%MIDI control 10 $midi(pvoice$vc)"
 		 set addmidi($vc) 0
 	         }
               }
-            if {[string first "K:" $line] && $addmidi(0) == 1} {
-                 puts $outhandle "%%MIDI program $midi(program)"
-		 puts $outhandle "%%MIDI control 7 85"
-                 if {$midi(nogchords) == 0} {puts $outhandle "%%MIDI chordprog $midi(chordprog) octave=$midi(chord_octave)"}
-		 set addmidi(0) 0
-	         }
 
          }
          puts $outhandle "\n"	      
