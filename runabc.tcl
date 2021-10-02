@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.310
-set runabc_date "(September 23 2021 22:00)"
+set runabc_version 2.311
+set runabc_date "(October 01 2021 09:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -3073,7 +3073,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
             if {[string first "X:" $line 0] == 0} break;
             if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
             puts $outhandle $line
-            if {[string first "K:" $line] == 0 && $addmidi(0) == 1} {
+            if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && $hasfield(V) == 0} {
                  puts $outhandle "%%MIDI program $midi(program)"
 		 puts $outhandle "%%MIDI control 7 85"
                  if {$midi(nogchords) == 0} {puts $outhandle "%%MIDI chordprog $midi(chordprog) octave=$midi(chord_octave)"}
