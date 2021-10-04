@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.311
-set runabc_date "(October 01 2021 09:40)"
+set runabc_version 2.312
+set runabc_date "(October 02 2021 20:20)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -945,7 +945,7 @@ proc midi_init {} {
     set midi(abc_default_file) edit.abc
     set midi(abc_work_folder)  workfold
     
-    for {set i 1} {$i <= 16} {incr i} {
+    for {set i 1} {$i <= 20} {incr i} {
         set midi(lvoice$i) 64
         set midi(voice$i) 0
         set midi(pvoice$i) 64
@@ -2937,9 +2937,9 @@ proc tune2Xtmp {tunes abcfile} {
             puts $out_fd $line
             if {[string length $midi_header] > 0 && $midi(use_midi_header)} {
                 puts -nonewline $out_fd $midi_header
-                for {set j 0} {$j < 17} {incr j} {set voice($j) 1}
+                for {set j 0} {$j < 20} {incr j} {set voice($j) 1}
                  } else {
-                for {set j 0} {$j < 17} {incr j} {set voice($j) 0}
+                for {set j 0} {$j < 20} {incr j} {set voice($j) 0}
 	        }
 
             scan $line "X:%d" track
@@ -2990,7 +2990,7 @@ proc tune2Xtmp {tunes abcfile} {
                         set vc [vcode2numb $vcode]
                     } else {
                         scan $line "V:%d" vc}
-                    if {$vc < 17} {
+                    if {$vc < 20} {
                         if {$voice($vc) == 0} {
                             puts $out_fd "%%MIDI program $midi(voice$vc)"
                             puts $out_fd "%%MIDI control 7 $midi(lvoice$vc)"
@@ -3044,7 +3044,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
     global ps_header
     global hasfield
 
-    for {set i 0} {$i < 17} {incr i} {
+    for {set i 0} {$i < 20} {incr i} {
       if {$midi(midi_chk)} {
        set addmidi($i) 1
        } else {
@@ -3073,7 +3073,7 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
             if {[string first "X:" $line 0] == 0} break;
             if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
             puts $outhandle $line
-            if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && $hasfield(V) == 0} {
+            if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && ![info exist hasfield(V)]} {
                  puts $outhandle "%%MIDI program $midi(program)"
 		 puts $outhandle "%%MIDI control 7 85"
                  if {$midi(nogchords) == 0} {puts $outhandle "%%MIDI chordprog $midi(chordprog) octave=$midi(chord_octave)"}
@@ -7578,7 +7578,7 @@ label $w.head1 -text program -font $df
 label $w.head2 -text level -font $df
 label $w.head3 -text pan -font $df
 
-for {set i 1} {$i <17} {incr i} {
+for {set i 1} {$i <20} {incr i} {
     label $w.lab$i -text $i -font $df
     set i1 [expr int(1 + $midi(voice$i)/8)]
     set i2 [expr $midi(voice$i) % 8 ]
@@ -7603,7 +7603,7 @@ set midiproglist {0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
    104 105 106 107 108 109 110 111}
 # we exclude timpani, rain and other effects
 
-for {set i 1} {$i < 17} {incr i} {
+for {set i 1} {$i < 20} {incr i} {
    set v voice$i
    set num [expr int(rand()*103)]
    set midi($v) [lindex $midiproglist $num]
@@ -7613,7 +7613,7 @@ for {set i 1} {$i < 17} {incr i} {
 
 proc same_voice_arrangement {} {
 global midi
-for {set i 1} {$i < 17} {incr i} {
+for {set i 1} {$i < 20} {incr i} {
    set v voice$i
    set midi($v) $midi(voice1)
    }
@@ -7624,7 +7624,7 @@ proc map_midi_to_voices {} {
 global midi
 global m
 set w .abc.voice.canvas.f
-for {set i 1} {$i <17} {incr i} {
+for {set i 1} {$i <20} {incr i} {
   set i1 [expr int(1 + $midi(voice$i)/8)]
   set i2 [expr $midi(voice$i) % 8 ]
   $w.prog$i configure -text [lindex $m($i1) $i2]
@@ -7638,7 +7638,7 @@ proc voice_button {num X Y} {
     program_popup $X $Y}
 
 grid   $w.head0 $w.head1 $w.head2 $w.head3
-for {set i 1} {$i < 17} {incr i} {
+for {set i 1} {$i < 20} {incr i} {
     grid   $w.lab$i  $w.prog$i  $w.vol$i  $w.pan$i -sticky w
 }
 
