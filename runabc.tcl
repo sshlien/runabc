@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.312
-set runabc_date "(October 02 2021 20:20)"
+set runabc_version 2.315
+set runabc_date "(November 19 2021 13:35)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1018,6 +1018,7 @@ proc midi_init {} {
     set midi(startbar) 1
     set midi(midilden) 0
     set midi(midirest) 0
+    set midi(pitchclassfifths) 0
     
     # midishow
     set midi(midishow_sep) track
@@ -3343,7 +3344,7 @@ proc extract_title_of_tune {tune abcfile} {
     if {[string length $title] <1} {set title notitle}
     set pat \[\"\/\\\*:\;\?\.\^\]
     regsub -all $pat $title "" result
-    set title [string map {\040 _ \\ ""} $result]
+    set title [string map {\040 _ \\ "" "\t" _} $result]
     return $title
 }
 
@@ -7758,9 +7759,10 @@ checkbutton $w.7.1 -text "extract only voice " -font $df -variable abc2abc_V
 entry $w.7.2 -width 2 -textvariable abc2abc_V_val -font $df
 pack $w.7.1 $w.7.2 -side left
 frame $w.11
-checkbutton $w.11.1 -text "apply to only voice " -font $df -variable abc2abc_P
-entry $w.11.2 -width 2 -textvariable abc2abc_P_val -font $df
-pack $w.11.1 $w.11.2 -side left
+# withdrawn October 15 2021
+#checkbutton $w.11.1 -text "apply to only voice " -font $df -variable abc2abc_P
+#entry $w.11.2 -width 2 -textvariable abc2abc_P_val -font $df
+#pack $w.11.1 $w.11.2 -side left
 frame $w.8
 radiobutton $w.8.0 -text "output to clipboard"  -variable midi(no_clipboard) \
         -relief flat -value 0  -font $df
@@ -7774,7 +7776,7 @@ button $w.9.1 -text "abc2abc" -font $df -command run_abc2abc
 button $w.9.2 -text "help" -font $df -command contexthelp
 pack $w.9.1 $w.9.2 -side left
 label $w.10 -text "" -font $df
-pack $w.1 $w.2 $w.3 $w.4 $w.40 $w.43 $w.5 $w.6 $w.7 $w.11 $w.8 $w.9 $w.10 -side top -anchor w
+pack $w.1 $w.2 $w.3 $w.4 $w.40 $w.43 $w.5 $w.6 $w.7 $w.8 $w.9 $w.10 -side top -anchor w
 
 proc forcekeymenu {fsf} {
     #fsf force sharps/flats
@@ -15082,6 +15084,7 @@ proc plot_pitch_class_histogram {} {
     global total
     global exec_out
     global df
+    global midi
     set notes {C C# D D# E F F# G G# A A# B}
     set maxgraph 0.0
     set xpos [expr $xrbx -40]
@@ -15094,6 +15097,9 @@ proc plot_pitch_class_histogram {} {
     if {[winfo exists .pitchclass] == 0} {
         toplevel .pitchclass
         position_window ".pitchclass"
+        checkbutton .pitchclass.circle -text "circle of fifths" -variable midi(pitchclassfifths) -font $df -command plot_pitch_class_histogram
+        pack .pitchclass.circle
+
         pack [canvas $pitchc -width $scanwidth -height $scanheight]\
                 -expand yes -fill both
     } else {.pitchclass.c delete all}
@@ -15105,17 +15111,22 @@ proc plot_pitch_class_histogram {} {
     Graph::draw_y_ticks $pitchc 0.0 $maxgraph 0.1 2 %3.1f
     
     set iy [expr $ybbx +10]
-    set i 0
+    set j 0
     foreach note $notes {
+        if {$midi(pitchclassfifths)} {
+           set i [expr ($j*7) % 12]
+           } else {
+           set i $j
+           }
         set ix [Graph::ixpos [expr $i +0.5]]
         $pitchc create text $ix $iy -text $note -font $df
-        set iyb [Graph::iypos $notedist($i)]
-        set count [expr round($notedist($i)*$total)]
+        set iyb [Graph::iypos $notedist($j)]
+        set count [expr round($notedist($j)*$total)]
         append exec_out  "$note $count\n"
         set ix [Graph::ixpos [expr double($i)]]
         set ix2 [Graph::ixpos [expr double($i+1)]]
         $pitchc create rectangle $ix $ybbx $ix2 $iyb -fill blue
-        incr i
+        incr j
     }
     $pitchc create rectangle $xlbx $ytbx $xrbx $ybbx -outline black\
             -width 2
