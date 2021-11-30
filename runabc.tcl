@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.315
-set runabc_date "(November 19 2021 13:35)"
+set runabc_version 2.317
+set runabc_date "(November 30 2021 09:35)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -6133,7 +6133,6 @@ proc run_abc2abc {} {
     global midi df
     global abc2abc_s  abc2abc_u  abc2abc_d  abc2abc_t abc2abc_n abc2abc_V
     global abc2abc_e abc2abc_n_val  abc2abc_t_val abc2abc_V_val
-    global abc2abc_P abc2abc_P_val
     global abc2abc_v abc2abc_nk abc2abc_useflats
     global abc2abc_usekey abc2abc_cl abc2abc_clef
     global barpickerflag
@@ -6157,7 +6156,6 @@ proc run_abc2abc {} {
     if {$abc2abc_t} {append abc2abc_opt "-t $abc2abc_t_val "}
     if {$abc2abc_n} {append abc2abc_opt "-n $abc2abc_n_val "}
     if {$abc2abc_V} {append abc2abc_opt "-V $abc2abc_V_val "}
-    if {$abc2abc_P} {append abc2abc_opt "-P $abc2abc_P_val "}
     if {$abc2abc_cl} {append abc2abc_opt "-useclef $abc2abc_clef "}
     copy_selection_to_file [title_selected] $midi(abc_open) X.tmp
     if {$midi(no_clipboard) == 1} {
@@ -23682,6 +23680,7 @@ set gchordpat {\"[^\"]+\"}
 set curlypat {\{[^\}]*\}}
 set chordpat {\[[^\]\[]*\]}
 set instructpat {![^!]*!}
+set instructpat2 {\[I:(.*?)\]}
 set tupletpat  {\(\d(\:\d)*}
 set sectpat {[-,0-9]+}
 
