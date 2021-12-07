@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.317
-set runabc_date "(November 30 2021 09:35)"
+set runabc_version 2.318
+set runabc_date "(December 07 2021 10:10)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2054,7 +2054,7 @@ proc play_midis {sel} {
          }
        }
       3  {
-        if {[valid_midiplayer $midi(path_pmidilayer_4)] == 0} return
+        if {[valid_midiplayer $midi(path_midiplayer_4)] == 0} return
         set cmd "exec [list $midi(path_midiplayer_4)] $midi(midiplayer_4_options) "
         switch -- $midi(midiplayer_4_prot) {
             0 {set cmd [concat $cmd [file join [pwd] X[lindex $sel 0].mid]]}
