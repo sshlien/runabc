@@ -11,7 +11,7 @@ exec wish8.6 "$0" "$@"
 
 # runabc.tcl: a graphical user interface to abcMIDI and other packages
 #
-# Copyright (C) 1998-2021 Seymour Shlien
+# Copyright (C) 1998-2022 Seymour Shlien
 #
 #
 # This program is free software; you can redistribute it and/or modify
@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.318
-set runabc_date "(December 07 2021 10:10)"
+set runabc_version 2.319
+set runabc_date "(February 2022 08:55)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1989,6 +1989,7 @@ proc play_action {} {
 
 proc play_Xtmp_output {sel} {
     global midi exec_out
+    global midioutput
     global files
     set cmd "exec [list $midi(path_abc2midi)]  X.tmp"
     if {$midi(barflymode)} {append cmd " -BF $midi(stressmodel)"}
@@ -15747,19 +15748,19 @@ proc mftextwindow {midifilein nofile} {
         toplevel $f
         position_window ".mftext"
         frame $f.1
-    label $f.1.lab -text "input midi file" -font $df
-    entry $f.1.filent -textvariable midi(midifilein)  -font $df -width 35 
-    button $f.1.browse -text browse -font $df -command {
+        label $f.1.lab -text "input midi file" -font $df
+        entry $f.1.filent -textvariable midi(midifilein)  -font $df -width 35 
+        button $f.1.browse -text browse -font $df -command {
              set midifilein [midi_file_browser]
              output_mftext [list $midifilein]
              }
-    button $f.1.help -text help -font $df\
+        button $f.1.help -text help -font $df\
             -command {show_message_page $hlp_mftext word}
-    pack $f.1.lab  $f.1.browse $f.1.filent $f.1.help -side left
-    pack $f.1
-    frame $f.2
-    pack $f.1 $f.2 -side top
-    bind $f.1.filent <Return> {focus .mftext
+        pack $f.1.lab  $f.1.browse $f.1.filent $f.1.help -side left
+        pack $f.1
+        frame $f.2
+        pack $f.1 $f.2 -side top
+        bind $f.1.filent <Return> {focus .mftext
                                output_mftext [list $midi(midifilein)]} 
 
 
@@ -15784,6 +15785,9 @@ proc mftextwindow {midifilein nofile} {
         pack $f.lab $f.note $f.touch $f.prog $f.meta $f.cntl -side left
         pack $f -side top -anchor w
     }
+    set midi(midifilein) $midifilein 
+    .mftext.1.filent configure -textvariable midi(midifilein)
+    
     if {$nofile} {
        pack forget .mftext.1
        } else {
