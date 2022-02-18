@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.319
-set runabc_date "(February 2022 08:55)"
+set runabc_version 2.320
+set runabc_date "(February 18 2022 08:55)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2669,6 +2669,11 @@ proc title_index {abcfile} {
             set meter [string range $line 2 end]
             set meter [string trim $meter]
         }
+        if {[string index $line 0] == "K" && $srch == T} {
+           set name $number
+           set srch K
+           }
+           
         switch -- $srch {
             X {if {[string compare -length 2 $line "X:"] == 0} {
                     regexp $pat $line  number
