@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.320
-set runabc_date "(February 18 2022 08:55)"
+set runabc_version 2.321
+set runabc_date "(April 08 2022 12:50)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -12574,7 +12574,6 @@ proc copy_midi_to_tmp {newlimits} {
 	    set tbeat $tmp
     }
 
-
     if {$midi(chan_method) == 2 && [string length $midi(midichannels)] > 0} {
        set cmd "exec [list $midi(path_midicopy)] -chns $midi(midichannels) "
     } elseif {$midi(trk_method) == 2 && [string length $midi(miditracks)] > 0} {
@@ -12588,7 +12587,6 @@ proc copy_midi_to_tmp {newlimits} {
     append cmd " [list $midi(midifilein)] tmp.mid"
     catch {eval $cmd} midicopyresult
     set exec_out "$cmd\n $midicopyresult\n"
-    #puts $exec_out
     return $midicopyresult
 }
 
@@ -13354,7 +13352,7 @@ proc piano_window {midifile} {
     pack .piano.trkchn.but -side left -anchor w
     bind .piano.trkchn.but <Button> {
         .midi2abc.11.beats.type invoke 2
-        set miditime [copy_midi_to_tmp 1]
+        set miditime [midi_to_midi 1]
         piano_play_midi_extract
         startup_playmark_motion $miditime
     }
@@ -13364,7 +13362,7 @@ proc piano_window {midifile} {
     bind $p.can <ButtonRelease-1> {piano_Button1Release}
     bind $p.can <Double-Button-1> piano_ClearMark
     bind $p.can <Button-3> {
-	set miditime [copy_midi_to_tmp 1]
+	set miditime [midi_to_midi 1]
         piano_play_midi_extract
         startup_playmark_motion $miditime
     }
@@ -14055,7 +14053,6 @@ proc midi_limits {} {
         set xvleft [expr $xvleft*$width]
         set xvright [expr $xvright*$width]
     }
-    #    puts "xvleft = $xvleft xvright=$xvright"
     
     set begin [expr round($xvleft*$pianoxscale)]
     set end [expr round($xvright*$pianoxscale)]
@@ -14064,7 +14061,6 @@ proc midi_limits {} {
     }
     set midi(beat1) [expr  $begin/$ppqn]
     set midi(beat2) [expr  $end/$ppqn]
-    #puts "midi_limits: $midi(beat1) $midi(beat2)"
     return [list $begin $end]
 }
 
@@ -14144,7 +14140,6 @@ proc midi_to_midi {sel} {
     #puts "sel = $sel"
     set tsel 0
     set trkstr ""
-    puts "midi_to_midi: sel = $sel"
     if {$sel} {
         #always include track 1 because it contains the tempo and other stuff
         for {set i 0} {$i <32} {incr i} {
@@ -14163,9 +14158,7 @@ proc midi_to_midi {sel} {
         } 
 
    set selvoice ""
-   puts "midi_to_midi trkstr = $trkstr"
    if {[string length $trkstr] > 0} {
-     puts "midi_to_midi: trkstr = $trkstr"
      if {$tsel < 1} {set selvoice ""
      } else {
        if {$midi(midishow_sep) == "track"} {
@@ -14193,7 +14186,6 @@ proc midi_to_midi {sel} {
     catch {eval $cmd} miditime
     #    puts $miditime
     set exec_out midi_to_midi:\n$cmd\n\n$miditime
-    puts "midi_to_midi: $exec_out"
     update_console_page
     return $miditime
 }
