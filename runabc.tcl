@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.321
-set runabc_date "(April 08 2022 12:50)"
+set runabc_version 2.326
+set runabc_date "(June 02 2022 11:15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -100,7 +100,8 @@ if {[catch {package require Ttk} error]} {
 # Part 44.0               Midistructure
 # Part 45.0               big abc editor
 # Part 46.0               pgram
-# Part 47.0               get_geometry_of_all_toplevels
+# Part 47.0               chordgram
+# Part 48.0               get_geometry_of_all_toplevels
 
 
 
@@ -833,6 +834,7 @@ proc midi_init {} {
     set midi(.live) ""
     set midi(.preferred_chords) ""
     set midi(.notegram) ""
+    set midi(.chordgram) ""
     set midi(.preferences) ""
     set midi(.pgram) ""
 
@@ -1085,6 +1087,8 @@ proc midi_init {} {
     set midi(pgramheight) 350
     set midi(pgramthick) 2
 
+    #save midi files
+    set midi(namelen) 8
 }
 
 # save all options, current abc file
@@ -6735,7 +6739,6 @@ bind .abc.g2v.5.ent   <Return> {focus .abc.g2v.1.lab}
 # midisave_tool property sheet
 
 set p .abc.midisavetool
-set midi(namelen) 8
 set midi(name) 1
 frame $p
 label $p.1
@@ -13172,16 +13175,16 @@ proc check_midi2abc_and_midicopy_versions {} {
     set result [get_version_number $midi(path_midi2abc)]
     #puts $result
     set err [scan $result "%f" ver]
-    set msg "You need midi2abc version 3.41 or higher"
+    set msg "You need midi2abc version 3.54 or higher"
     if {$err == 0} {return $msg}
-    if {$ver < 3.41} {tk_messageBox -message $msg
+    if {$ver < 3.54} {tk_messageBox -message $msg
 	              return $msg}
     
     set result [get_version_number $midi(path_midicopy)]
     set err [scan $result "%f" ver]
-    set msg "You need midicopy.exe version 1.32 or higher"
+    set msg "You need midicopy.exe version 1.38 or higher"
     if {$err == 0} {return $msg}
-    if {$ver < 1.32} {tk_messageBox -message $msg
+    if {$ver < 1.38} {tk_messageBox -message $msg
 	              return $msg}
     return pass
 }
@@ -13277,6 +13280,8 @@ proc piano_window {midifile} {
                 }
     $p.action.items add command -label "notegram" -font $df\
             -command notegram_plot
+#    $p.action.items add command -label "chordgram" -font $df\
+#            -command "chordgram_plot pianoroll"
     $p.action.items add command  -label "onset distribution" -font $df \
              -command {pianoroll_statistics onset
                        plotmidi_onset_pdf
@@ -16407,7 +16412,11 @@ proc list_on_pitches {} {
 
 proc switch_note_status {midicmd} {
     global notestatus
+    global beat_notestatus
     set notestatus([lindex $midicmd 1]) [lindex $midicmd 2]
+    if {[lindex $midicmd 2] == 1} {
+      set beat_notestatus([lindex $midicmd 1]) 1
+      }
     #puts "notestatus([lindex $midicmd 1]) = $notestatus([lindex $midicmd 1])"
 }
 
@@ -17735,6 +17744,7 @@ array set flatnotes {
     10 _B
     11 B
 }
+
 
 # key2sf {keysig}
 # It interprets the key signature string in the K: command
@@ -24191,6 +24201,8 @@ proc make_midi_summary {} {
 	      show_note_distribution}
    $w.pitch.items add command -label "notegram" -font $df\
     -command notegram_plot
+   $w.pitch.items add command -label "chordgram" -font $df\
+            -command "chordgram_plot none"
    $w.pitch.items add command -label "velocity pdf" -font $df\
     -command {midi_statistics velocity
 	      plotmidi_velocity_pdf}
@@ -24576,6 +24588,7 @@ namespace eval midisummary {
  variable channel_activity
  global midierror
  global useflats
+ global midiTempo
  array unset trkinfo
  set midierror ""
  set ntrks 0
@@ -24601,6 +24614,7 @@ namespace eval midisummary {
                }
      chnact   {set channel_activity [lrange $line 1 end]}
      progs {set cprogs [lrange $line 1 end]}
+     tempo {set done [scan $line "tempo %6f" midiTempo]}
      progsact {set cprogsact [lrange $line 1 end]}
      Error: {set problem [lrange $line 1 end]
              set midierror  "defective file : $problem\t"
@@ -25002,11 +25016,6 @@ future analysis and give it a more meaningful name.
 
 
 set midistructurewidth 400
-
-proc midi_structure_display {} {
-   load_midifile
-   midi_structure_window 
-}
 
 proc mstruct_update_displayed_pdf_windows {} {
 channelstracks_to_midi
@@ -26350,8 +26359,533 @@ if {[llength $limits] > 1} {
   play_midi_file tmp.mid 
 }
 
+
+# Part 47.0
+#         chordgram plot 
+
+set hlp_chordgram "Chordgram
+
+Plots the predominant chord for each beat. The chord root is\
+determined using Craig Sapp's algorithm, and then the type of chord\
+is determined by looking at the spaces between the pitches. Major\
+chords are in red, minor blue, diminished green and augmented in\
+purple. The vertical scale is either sequential or follows the circle\
+of fifths.\n\n
+To zoom into an area, sweep the mouse pointer over the region holding\
+the left mouse button down. Then press the zoom button. The chordgram\
+may be linked to the midi structure window or the piano roll window\
+if they are exposed.\n\n
+Clicking the save data button will record the plotted results in the\
+file chordgram.txt which can be found in the midiexplorer_home folder.
+
+"
+set pianorollwidth 500
+
+proc chordgram_plot {source} {
+   global pianorollwidth
+   global midi
+   global df
+   global chord_sequence
+   global seqlength
+   if {![winfo exist .chordgram]} {
+     toplevel .chordgram
+     position_window .chordgram
+     frame .chordgram.head
+     checkbutton .chordgram.head.2 -text "circle of fifths" -variable midi(chordgram) -font $df -command "call_compute_chordgram $source"
+     button .chordgram.head.play -text play -font $df -command {playExposed chordgram}
+     button .chordgram.head.zoom -text zoom -command zoom_chordgram -font $df
+     button .chordgram.head.unzoom -text unzoom -command unzoom_chordgram -font $df 
+     button .chordgram.head.save -text "save data" -font $df -command saveChordgramData
+     button .chordgram.head.help -text help -font $df -command {show_message_page $hlp_chordgram word}
+     pack  .chordgram.head.2 .chordgram.head.play .chordgram.head.zoom .chordgram.head.unzoom .chordgram.head.save .chordgram.head.help -side left -anchor w
+     pack  .chordgram.head -side top -anchor w 
+     set c .chordgram.can
+     canvas $c -width $pianorollwidth -height 250 -border 3 -relief sunken
+     pack $c
+
+     bind .chordgram.can <ButtonPress-1> {chordgram_Button1Press %x %y}
+     bind .chordgram.can <ButtonRelease-1> chordgram_Button1Release
+     bind .chordgram.can <Double-Button-1> chordgram_ClearMark
+     }
+   set chord_sequence [determineChordSequence $source]
+   set last_beat [dict size $chord_sequence]
+   set seqlength $last_beat
+   call_compute_chordgram $source
+}
+
+proc getCanvasLimits {source} {
+global lastbeat
+global ppqn
+set start -1
+set stop $lastbeat
+switch $source {
+  chordgram {
+    set co [.chordgram.can coords mark]
+    set limits [chordgram_limits $co]
+       if {[lindex $limits 0] >= 0} {
+       set start [expr [lindex $limits 0]]
+       set stop  [expr [lindex $limits 1]]
+       }
+    }
+  notegram {
+    set co [.notegram.can coords mark]
+    set limits [notegram_limits $co]
+       if {[lindex $limits 0] >= 0} {
+       set start [expr [lindex $limits 0]]
+       set stop  [expr [lindex $limits 1]]
+       }
+    }
+  pianoroll {
+    set limits [midi_limits]
+    if {[lindex $limits 0] >= 0} {
+       set start [expr [lindex $limits 0]/double($ppqn)]
+       set stop  [expr [lindex $limits 1]/double($ppqn)]
+       }
+    }
+  midistructure {
+    set limits [midistruct_limits .midistructure.can]
+    if {$limits != "none"} {
+       set start [lindex $limits 0]
+       set stop [lindex $limits 1]
+       }
+    }
+  pgram {
+    set limits  [pgram_limits .pgram.c]
+    if {[llength $limits] > 1} {
+       set start [lindex $limits 0]
+       set tbeat [lindex $limits 1]
+       }
+   }
+  tableau {
+    set limits [tableau_limits]
+    if {$limits != "none"} {
+       set start [lindex $limits 0]
+       set stop [lindex $limits 1]
+       }
+    }
+  default {
+    set start -1
+    set stop $lastbeat
+    }
+  }
+return [list $start $stop]
+}
+
+proc call_compute_chordgram {source} {
+set limits [getCanvasLimits $source]
+set start [lindex $limits 0]
+set stop  [lindex $limits 1]
+compute_chordgram $start $stop
+}
+
+proc chordgram_Button1Press {x y} {
+    set xc [.chordgram.can canvasx $x]
+    .chordgram.can raise mark
+    .chordgram.can coords mark $xc 20 $xc 220
+    bind .chordgram.can <Motion> { chordgram_Button1Motion %x }
+}
+
+proc chordgram_Button1Motion {x} {
+    set xc [.chordgram.can canvasx $x]
+    if {$xc < 0} { set xc 0 }
+    set co [.chordgram.can coords mark]
+    .chordgram.can coords mark [lindex $co 0] 20 $xc 220
+}
+
+proc chordgram_Button1Release {} {
+    bind .chordgram.can <Motion> {}
+    set co [.chordgram.can coords mark]
+    if {[winfo exist .midistructure]} {
+          chordgram_migrate_to_midistruct $co  
+      }
+   }
+
+proc chordgram_limits {co} {
+global midistructureheight
+global chordgram_xfm
+# convert to beat numbers
+set b [lindex $chordgram_xfm 0]
+set a [lindex $chordgram_xfm 2]
+set left [lindex $co 0]
+set right [lindex $co 2]
+set beat1 [expr ($left -$a)/$b] 
+set beat2 [expr ($right-$a)/$b]
+return [list $beat1 $beat2]
+}
+
+proc zoom_chordgram {} {
+call_compute_chordgram chordgram
+}
+
+proc unzoom_chordgram {} {
+global seqlength
+set start -1
+set stop $seqlength
+compute_chordgram $start $stop
+}
+
+proc chordgram_migrate_to_midistruct {co} {
+global midistructureheight
+global pixels_per_beat
+set beatlimits [chordgram_limits $co]
+set beat1 [expr [lindex $beatlimits 0]*$pixels_per_beat]
+set beat2 [expr [lindex $beatlimits 1]*$pixels_per_beat]
+.midistructure.can coords mark $beat1 0 $beat2 $midistructureheight
+}
+
+proc chordgram_ClearMark {} {
+    .chordgram.can coords mark -1 -1 -1 -1
+}
+
+
+
+proc list_on_notes_in_beat {} {
+    global beat_notestatus
+    set notelist {}
+    set j 0
+    for {set i 0} {$i < 128} {incr i } {
+        if {$beat_notestatus($i)} {lappend notelist $i
+            incr j}
+    }
+    return $notelist
+}
+
+
+proc root_of {chordstring} {
+# Using Craig Stuart Sapp's algorithm described in
+# Computational Chord-Root Identification in Symbolic Musical
+# Data: Rationale, Methods and Applications
+# Published in "Tonal Theory for the Digital Age" (Computing
+# in Musicology 15, 2007) pp 99-119.
+# http://www.ccarh.org/publications/books/cm/
+set w {0 4 1 5 2 6 3}
+set k {C D E F G A B}
+set sharp #
+set flat b
+set minsum 100
+for {set shift 0} {$shift < 7} {incr shift} {
+  set sum 0
+  foreach note $chordstring {
+    set key [string index $note 0]
+    set keyloc [lsearch $k $key]
+    set v [lindex $w [expr ($keyloc - $shift) % 7]]
+    incr sum $v
+    }
+  if {$sum < $minsum} {
+    set bestshift $shift
+    set minsum $sum
+    }
+  }
+  set bass  [lindex $k $bestshift]
+  if {[string first $bass$sharp $chordstring] > -1} {set bass $bass$sharp}
+  if {[string first $bass$flat $chordstring] > -1} {set bass $bass$flat}
+  return $bass
+}
+
+
+proc chordname {chordstring root} {
+  # remove numbers from chordstring
+  regsub -all -line {\d} $chordstring "" clean_notes
+  set sharpmapper {C# 1 C 0 D# 3 D 2 E 4 F# 6 F 5 G# 8 G 7 A# 10 A 9 B 11}
+  set flatmapper {C 0 Db 1 D 2 Eb 3 E 4 F 5 Gb 6 G 7 Ab 8 A 9 Bb 10 B 11}
+  set maj "maj"
+  set min "min"
+  set aug "aug"
+  set dim "dim"
+  if {[string first # $chordstring] > -1} {
+     set notevals [string map $sharpmapper $clean_notes]
+     set rootval [string map $sharpmapper $root]
+     } else {
+     set notevals [string map $flatmapper $clean_notes]
+     set rootval [string map $flatmapper $root]
+     }
+  #puts $clean_notes
+  for {set i 0} {$i < [llength $notevals]} {incr i} {
+    lset notevals $i [expr ([lindex $notevals $i] - $rootval) % 12]
+    }
+  set notevals [lsort -increasing -unique -integer $notevals]
+  #puts "$root $rootval"
+  if {[lsearch $notevals 3] > 0} {
+    if {[lsearch $notevals 6] > 0} {
+      set key $root$dim
+      } elseif {[lsearch $notevals 7] > 0} {
+      set key $root$min
+      } else {set key $root$min}
+   } elseif {[lsearch $notevals 4] > 0} {
+     if {[lsearch $notevals 7] >0} {
+      set key $root$maj
+      } elseif {[lsearch $notevals 8] > 0} {
+      set key $root$aug
+      } else {set key $root$maj}
+  } else {set key $root}
+  #puts $key
+  return $key
+  }
+
+
+
+
+
+proc determineChordSequence {source} {
+    global midi
+    global sorted_midiactions
+    global ppqn
+    global pianoresult
+    global midilength
+    global lastbeat
+    global exec_out
+    global cleanData
+
+    set midi(outfilename) tmp.mid
+    set list_of_chords [dict create]
+    #Force loadMidiFile in case notegram alters pianoresult
+    set midilength 0
+    set cleanData 0
+    if {$source == "pianoroll"} {
+      set limits [midi_limits]
+      set start [lindex $limits 0]
+      set stop  [lindex $limits 1]
+      if {$midilength == 0} loadMidiFile
+      set cleanData 1
+      } else {
+# if not called from .piano window
+      copy_midi_to_tmp $source
+      set cleanData 0
+      set cmd "exec [list $midi(path_midi2abc)] $midi(outfilename) -midigram"
+      catch {eval $cmd} pianoresult
+      set exec_out [append exec_out "determineChordSeq:\n\n$cmd\n\n $pianoresult"]
+      update_console_page
+      set nrec [llength $pianoresult]
+      set midilength [lindex $pianoresult [expr $nrec -1]]
+      set lastbeat [expr $midilength/$ppqn]
+      set pianoresult [split $pianoresult \n]
+      set start 0
+      set stop $midilength
+      }
+
+
+    reorganize_pianoresult
+    
+    set tsel [count_selected_midi_tracks]
+    
+    
+    turn_off_all_notes
+    reset_beat_notestatus
+    
+    set last_time 0.0
+    set last_beat_number 0
+
+    set last_beat [expr int($midilength/$ppqn)]
+    for {set i 0} {$i <$last_beat} {incr i} {
+       dict set list_of_chords $i ""
+       }
+    set i 0
+    
+    foreach midiunit $sorted_midiactions {
+        set begin [lindex $midiunit 0]
+        if {[string is double $begin] != 1} continue
+        if {$begin < $start} continue
+        set end [lindex $midiunit 0]
+        if {$end   > $stop}  continue
+        
+        set present_time [lindex $midiunit 0]
+        set beat_time [format %5.2f [expr double($present_time)/$ppqn]]
+        set beat_number [expr int($beat_time)]
+        #puts "beat_number = $beat_number [lindex $midiunit 1]"
+        if {$last_beat_number != $beat_number} {
+            set onlist [list_on_notes_in_beat]
+            reset_beat_notestatus
+            set last_beat_number $beat_number
+            set chordstring [label_notelist $onlist]
+            set chordname [chordname $chordstring [root_of $chordstring]]
+            dict set list_of_chords $beat_number $chordname
+            set last_time $present_time
+        }
+        
+        switch_note_status $midiunit
+    }
+    dict set list_of_chord size $last_beat
+    return $list_of_chords
+}
+
+
+proc reset_beat_notestatus {} {
+    global notestatus
+    global beat_notestatus
+    for {set i 0} {$i < 128} {incr i} {
+       set beat_notestatus($i) $notestatus($i)
+       }
+}
+
+
+proc reorganize_pianoresult {} {
+    global pianoresult
+    global sorted_midiactions
+    global midi
+    global trksel
+    set midiactions {}
+    set tsel [count_selected_midi_tracks]
+    #puts "reorganize_pianoresult for [llength $pianoresult] records"
+    foreach cmd $pianoresult {
+        if {[llength $cmd] < 5} continue
+        set onset [lindex $cmd 0]
+        set stop  [lindex $cmd 1]
+        set trk   [lindex $cmd 2]
+        set chn   [lindex $cmd 3]
+        set pitch [lindex $cmd 4]
+        if {$chn == 10} continue
+        if {$midi(midishow_sep) == "track"} {set sep $trk} else {set sep $chn}
+        if {$tsel == 0} {
+          lappend midiactions [list $onset $pitch 1]
+          lappend midiactions [list $stop  $pitch 0]
+          } else {
+          if {$tsel != 0 && $trksel($sep) == 0} continue
+          lappend midiactions [list $onset $pitch 1]
+          lappend midiactions [list $stop  $pitch 0]
+          }
+     }
+    set sorted_midiactions [lsort -command compare_onset $midiactions]
+}
+
+
+proc compute_chordgram {start stop} {
+   global pianorollwidth
+   global useflats
+   global ppqn
+   global midi
+   global chordgram_xfm
+   global chord_sequence
+   global seqlength
+   global chordgramLimits
+   set sharpnoteslist  {C C# D D# E F F# G G# A A# B}
+   set flatnoteslist   {C Db D Eb E F Gb G Ab A Bb B}
+   set sharpnotes5list {C G D A E B F# C# G# D# A# F}
+   set flatnotes5list  {C G D A E B Gb Db Ab Eb Bb F}
+   set chordgramLimits [list $start $stop]
+   # useflats is set by plot_pitch_class_histogram
+   set xrbx [expr $pianorollwidth - 3]
+   set xlbx  40
+   set ytbx 20
+   set ybbx 220 
+   set c .chordgram.can
+   $c delete all
+   $c create rectangle $xlbx $ybbx $xrbx $ytbx -outline black -width 2 -fill lightgrey 
+  set start5 [expr (1 + int($start)/5)*5.0]
+
+   # white or black characters
+  set colfg black
+
+   set pixelsperbeat [expr ($xrbx - $xlbx) / double($stop - $start)]
+   Graph::alter_transformation $xlbx $xrbx $ybbx $ytbx $start $stop 0.0 200.0 
+   set chordgram_xfm [Graph::save_transform] 
+   for {set j 0} {$j <$seqlength} {incr j} {
+     if {$j < $start || $j > $stop} continue
+     set chord [dict get $chord_sequence $j]
+     if {$chord == ""} continue
+     if {[string index $chord 1] == "#"} {
+        set key [string range $chord 0 1]
+        set chordtype [string range $chord 2 end]
+        } elseif {[string index $chord 1] == "b"} {
+        set key [string range $chord 0 1]
+        set chordtype [string range $chord 2 end]
+        } else {
+        set key [string index $chord 0]
+        set chordtype [string range $chord 1 end]
+        }
+     if {$midi(chordgram) == 1} {
+       if {$useflats == 1} {
+         set loc [lsearch $flatnotes5list $key]
+         } else { 
+         set loc [lsearch $sharpnotes5list $key]
+         }
+     } else {
+       if {$useflats == 1} {
+         set loc [lsearch $flatnoteslist $key]
+         } else { 
+         set loc [lsearch $sharpnoteslist $key]
+         }
+     }
+     #puts "chord = $key $chordtype $loc"
+     set ix [Graph::ixpos [expr double($j)]]
+     set iy [Graph::iypos [expr double($loc*16) + 7 ]]
+     set iy1 [expr $iy - 3]
+     set iy2 [expr $iy + 3]
+     set ix1 [expr $ix - 3]
+     set ix2 [expr $ix + 3]
+     switch $chordtype {
+       maj {$c create oval $ix1 $iy1 $ix2 $iy2 -fill darkred}
+       min {$c create oval $ix1 $iy1 $ix2 $iy2 -fill blue}
+       dim {$c create oval $ix1 $iy1 $ix2 $iy2 -fill darkgreen}
+       aug {$c create oval $ix1 $iy1 $ix2 $iy2 -fill purple}
+       default {$c create oval $ix1 $iy1 $ix2 $iy2 -fill black}
+       }
+     }
+  set i 0
+  set ix 15 
+  if {$midi(chordgram) == 1} {
+    if {$useflats} {
+      foreach name $flatnotes5list {
+         set iy [Graph::iypos [expr double($i * 16)]] 
+         set iy [expr $iy - 5]
+         $c create text $ix $iy -text $name -fill $colfg
+         incr i
+         }
+      } else {
+      foreach name $sharpnotes5list {
+         set iy [Graph::iypos [expr double($i * 16)]] 
+         set iy [expr $iy - 5]
+         $c create text $ix $iy -text $name -fill $colfg
+         incr i
+         }
+     }
+   } else {
+    if {$useflats} {
+      foreach name $flatnoteslist {
+         set iy [Graph::iypos [expr double($i * 16)]] 
+         set iy [expr $iy - 5]
+         $c create text $ix $iy -text $name -fill $colfg
+         incr i
+         }
+      } else {
+      foreach name $sharpnoteslist {
+         set iy [Graph::iypos [expr double($i * 16)]] 
+         set iy [expr $iy - 5]
+         $c create text $ix $iy -text $name -fill $colfg
+         incr i
+         }
+      }
+   }
+    set graphlength [expr $stop - $start]
+    set spacing [best_grid_spacing $graphlength]
+    Graph::draw_x_grid $c $start5 $stop $spacing 1  0 %5.0f $colfg
+
+   .chordgram.can create rect -1 -1 -1 -1 -tags mark -fill yellow -stipple gray25
+}
+
+proc saveChordgramData {} {
+global midi
+global chord_sequence
+global seqlength
+global chordgramLimits
+global midiTempo
+set beats2seconds [expr 60.0/double($midiTempo)]
+set start [lindex $chordgramLimits 0]
+set stop [lindex $chordgramLimits 1]
+set outhandle [open "chordgram.txt" w]
+puts $outhandle "chordgram results for $midi(midifilein)"
+for {set j 0} {$j <$seqlength} {incr j} {
+  if {$j < $start} continue
+  if {$j > $stop} break
+  set chord [dict get $chord_sequence $j]
+  set seconds [format "%5.2f" [expr $j * $beats2seconds]]
+  puts $outhandle "$j\t$seconds\t$chord"
+  }
+close $outhandle
+}
+
+
                
-# Part 47.0               get_geometry_of_all_toplevels
+# Part 48.0               get_geometry_of_all_toplevels
 
 proc get_geometry_of_all_toplevels {} {
   global midi
