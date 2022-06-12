@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.326
-set runabc_date "(June 02 2022 11:15)"
+set runabc_version 2.335
+set runabc_date "(June 10 2022 16:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1535,6 +1535,8 @@ $w.type add command -label "Extract part"   -command show_extract_page -font $df
 $w.type add command -label "Drum tool"    -command {drumtool_gui_setup} -font $df
 $w.type add command -label "Pitch histogram" -command {note_histogram} -font $df
 $w.type add command -label "Pitch interval histogram" -command {note_interval_histogram} -font $df
+$w.type add command -label "Chordgram" -command {abcToChordgram} -font $df
+$w.type add command -label "Notegram" -command {abcToNotegram} -font $df
 $w.type add command -label "Save midi file(s)" -command midisave -font $df
 $w.type add command -label "Save sheet music as ps" -command postscriptsave -font $df
 $w.type add command -label "Save sheet music as pdf" -command pdfsave -font $df
@@ -12253,7 +12255,7 @@ proc track_cmd {sel} {
 
 proc update_displayed_pdf_windows_for_summary {} {
 if {[winfo exists .notegram]} {
-   notegram_plot
+   notegram_plot none
    }
 if {[winfo exists .pitchpdf]} {
    midi_statistics pitch
@@ -13279,7 +13281,7 @@ proc piano_window {midifile} {
                 guess_mode_correlation}
                 }
     $p.action.items add command -label "notegram" -font $df\
-            -command notegram_plot
+            -command {notegram_plot none}
 #    $p.action.items add command -label "chordgram" -font $df\
 #            -command "chordgram_plot pianoroll"
     $p.action.items add command  -label "onset distribution" -font $df \
@@ -13957,7 +13959,7 @@ proc unhighlight_track {num} {
 proc update_displayed_pdf_windows {} {
 trksel_to_midi
 if {[winfo exists .notegram]} {
-   notegram_plot
+   notegram_plot none
    }
 if {[winfo exists .pitchpdf]} {
    pianoroll_statistics pitch
@@ -19374,6 +19376,8 @@ proc finish_tune {} {
     if {[winfo exist .pitchclass]} note_histogram
     if {[winfo exist .histmatches]}  Matcher::match_histogram_correlation
     if {[winfo exist .pitchinterval]} note_interval_histogram
+    if {[winfo exist .chordgram]} abcToChordgram
+    if {[winfo exist .notegram]} abcToNotegram
 }
 
 
@@ -20300,6 +20304,52 @@ for {set i -12} {$i < 12} {incr i} {
     set histogram($i) [expr $histogram($i)/double($total)]
     }
 plot_pitch_interval_histogram
+}
+
+proc make_pianoresult {} {
+global ppqn
+global pianoresult
+global midilength
+global lastbeat
+global midi
+set cmd "exec [list $midi(path_midi2abc)] $midi(outfilename) -midigram"
+catch {eval $cmd} pianoresult
+#set exec_out [append exec_out "determineChordSeq:\n\n$cmd\n\n $pianoresult"]
+#update_console_page
+set nrec [llength $pianoresult]
+set midilength [lindex $pianoresult [expr $nrec -1]]
+set lastbeat [expr $midilength/$ppqn]
+}
+
+proc abcToChordgram {} {
+global midi sel
+global exec_out
+global ppqn
+global useflats
+set useflats 0
+set ppqn 480
+set sel [title_selected]
+set sel [tune2Xtmp $sel $midi(abc_open)]
+set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
+eval $cmd
+set midi(midifilein) fromAbc.mid
+chordgram_plot none
+}
+
+proc abcToNotegram {} {
+global midi sel
+global exec_out
+global ppqn
+global useflats
+set useflats 0
+set ppqn 480
+set sel [title_selected]
+set sel [tune2Xtmp $sel $midi(abc_open)]
+set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
+eval $cmd
+set midi(outfilename) fromAbc.mid
+make_pianoresult
+notegram_plot none
 }
 
 
@@ -24200,7 +24250,7 @@ proc make_midi_summary {} {
     -command {midi_statistics pitch
 	      show_note_distribution}
    $w.pitch.items add command -label "notegram" -font $df\
-    -command notegram_plot
+    -command "notegram_plot none"
    $w.pitch.items add command -label "chordgram" -font $df\
             -command "chordgram_plot none"
    $w.pitch.items add command -label "velocity pdf" -font $df\
@@ -24508,6 +24558,7 @@ namespace eval midisummary {
   global ntrks
   global npulses
   global ppqn
+  global lastbeat
   set midi_info [get_midi_info_for]
   if {[string length $midi_info] < 1} return
   set size [file size $midi(midifilein)]
@@ -24521,6 +24572,7 @@ namespace eval midisummary {
   .msummary.limits.end configure -to $nbeats
   set midi(beat1) 0
   set midi(beat2) $nbeats
+  set lastbeat $nbeats
  } 
 
  proc grab_all_program_commands {} {
@@ -24750,30 +24802,94 @@ proc best_grid_spacing {x} {
  return $n
 }
 
-proc notegram_plot {} {
+proc notegram_plot {source} {
    global gramwidth
    global midi
    global df
+   global lastbeat
+   global seqlength
    if {![winfo exist .notegram]} {
      toplevel .notegram
      position_window .notegram
      frame .notegram.head
-     radiobutton .notegram.head.1 -text sequential -variable midi(notegram) -value seq -font $df -command compute_notegram
-     radiobutton .notegram.head.2 -text "circle of fifths" -variable midi(notegram) -value fifths -font $df -command compute_notegram
-     pack  .notegram.head.1 .notegram.head.2 -side left -anchor w
+     checkbutton .notegram.head.2 -text "circle of fifths" -variable midi(notegram) -font $df -command {call_compute_notegram none}
+     button .notegram.head.play -text play -font $df -command {playExposed notegram}
+     button .notegram.head.zoom -text zoom -command zoom_notegram -font $df
+     button .notegram.head.unzoom -text unzoom -command unzoom_notegram -font $df
+     pack  .notegram.head.2 .notegram.head.play .notegram.head.zoom .notegram.head.unzoom -side left -anchor w
      pack  .notegram.head -side top -anchor w 
      set c .notegram.can
      canvas $c -width $gramwidth -height 250 -border 3 -relief sunken
      pack $c
+     bind .notegram.can <ButtonPress-1> {notegram_Button1Press %x %y}
+     bind .notegram.can <ButtonRelease-1> notegram_Button1Release
+     bind .notegram.can <Double-Button-1> notegram_ClearMark
      }
+   set seqlength $lastbeat
    if {[winfo exist .piano]} {compute_piano_notegram
    } else {
-   compute_notegram
+   call_compute_notegram none
    }
 }
 
+proc notegram_Button1Press {x y} {
+    set xc [.notegram.can canvasx $x]
+    .notegram.can raise mark
+    .notegram.can coords mark $xc 20 $xc 220
+    bind .notegram.can <Motion> { notegram_Button1Motion %x }
+}
 
-proc compute_notegram {} {
+proc notegram_Button1Motion {x} {
+    set xc [.notegram.can canvasx $x]
+    if {$xc < 0} { set xc 0 }
+    set co [.notegram.can coords mark]
+    .notegram.can coords mark [lindex $co 0] 20 $xc 220
+}
+
+proc notegram_Button1Release {} {
+    bind .notegram.can <Motion> {}
+    set co [.notegram.can coords mark]
+    if {[winfo exist .midistructure]} {
+          notegram_migrate_to_midistruct $co
+      }
+    }
+
+proc notegram_ClearMark {} {
+    .notegram.can coords mark -1 -1 -1 -1
+}
+
+proc notegram_limits {co} {
+global notegram_xfm
+# convert to beat numbers
+set b [lindex $notegram_xfm 0]
+set a [lindex $notegram_xfm 2]
+set left [lindex $co 0]
+set right [lindex $co 2]
+set beat1 [expr ($left -$a)/$b]
+set beat2 [expr ($right-$a)/$b]
+return [list $beat1 $beat2]
+}
+
+proc zoom_notegram {} {
+call_compute_notegram notegram
+}
+     
+proc unzoom_notegram {} {
+global seqlength
+set start -1
+set stop $seqlength
+compute_notegram $start $stop
+}
+ 
+
+proc call_compute_notegram {source} {
+set limits [getCanvasLimits $source]
+set start [lindex $limits 0]
+set stop  [lindex $limits 1]
+compute_notegram $start $stop
+}
+
+proc compute_notegram {start stop} {
    global gramwidth
    global pianoresult
    global lastbeat
@@ -24785,6 +24901,9 @@ proc compute_notegram {} {
    global midi
    global fbeat
    global tbeat
+   global notegram_xfm
+   set frombeat $start
+   set tobeat $stop
    set permut5th {0 7 2 9 4 11 6 1 8 3 10 5}
    array set pitchcount {0 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0}
    copy_midi_to_tmp 1
@@ -24801,21 +24920,25 @@ proc compute_notegram {} {
    set start 0
    if {$tbeat == 0} {set tbeat $lastbeat}
    $c create rectangle $xlbx $ybbx $xrbx $ytbx -outline black -width 2 -fill lightgrey 
-   Graph::alter_transformation $xlbx $xrbx $ybbx $ytbx $fbeat $tbeat 0.0 200.0 
+   Graph::alter_transformation $xlbx $xrbx $ybbx $ytbx $frombeat $tobeat 0.0 200.0 
+   set notegram_xfm [Graph::save_transform]
    foreach line [split $pianoresult \n] {
      if {[llength $line] != 6} continue
      set begin [lindex $line 0]
      set end [lindex $line 1]
+     set beat [expr double($begin)/$ppqn]
+     if {$beat < $frombeat} continue
+     if {$beat > $tobeat} break
      set t [lindex $line 2]
      set channel [lindex $line 3]
      if {$channel == 10} continue
      set note [lindex $line 4]
      set note [expr $note % 12]
      incr pitchcount($note)
-     if {$midi(notegram) == "fifths"} {
+     if {$midi(notegram) == 1} {
         set loc [lindex $permut5th $note]
      } else {set loc $note}
-     set ix [Graph::ixpos [expr $fbeat + double($begin)/$ppqn]]
+     set ix [Graph::ixpos $beat]
      set iy [Graph::iypos [expr double($loc*16) + 7 ]]
      set iy1 [expr $iy - 3]
      set iy2 [expr $iy + 3]
@@ -24829,7 +24952,7 @@ proc compute_notegram {} {
   if {$flats > $sharps} {set useflats 1}
   set i 0
   set ix 15 
-  if {$midi(notegram) == "fifths"} {
+  if {$midi(notegram) == 1} {
     if {$useflats} {
       foreach name $flatnotes5list {
          set iy [Graph::iypos [expr double($i * 16)]] 
@@ -24863,9 +24986,10 @@ proc compute_notegram {} {
       }
    }
     set start5 0
-    if {$fbeat != 0} {set start5 [expr (1 + int($fbeat)/5)*5.0]}
-    set spacing [best_grid_spacing [expr ($tbeat - $fbeat)]]
-    Graph::draw_x_grid $c $start5 $tbeat $spacing 1  0 %5.0f
+    if {$frombeat != 0} {set start5 [expr (1 + int($frombeat)/5)*5.0]}
+    set spacing [best_grid_spacing [expr ($tobeat - $frombeat)]]
+    Graph::draw_x_grid $c $start5 $tobeat $spacing 1  0 %5.0f
+    .notegram.can create rect -1 -1 -1 -1 -tags mark -fill yellow -stipple gray25
 }
 
 proc compute_piano_notegram {} {
@@ -26376,8 +26500,16 @@ the left mouse button down. Then press the zoom button. The chordgram\
 may be linked to the midi structure window or the piano roll window\
 if they are exposed.\n\n
 Clicking the save data button will record the plotted results in the\
-file chordgram.txt which can be found in the midiexplorer_home folder.
+file chordgram.txt which can be found in the midiexplorer_home folder.\n\n
 
+Chordgram was originally a function in my program midiexplorer. It was\
+ported to this program since it looked like a useful feature to\
+visualize abc notated tunes. Runabc will now produce a chordgram\
+plot from a selected abc tune by first converting it into a midi\
+file and then the algorithm on the midi file. This is not the\
+ideal approach since there can be a loss of information when it is\
+converted into a midi file (eg bar lines). Each beat is still a quarter\
+note (even for compound rhythms like 9/8).
 "
 set pianorollwidth 500
 
@@ -26470,6 +26602,23 @@ switch $source {
   }
 return [list $start $stop]
 }
+
+proc playExposed {source} {
+global midi
+global exec_out
+set limits [getCanvasLimits $source]
+set start [expr [lindex $limits 0]]
+set stop  [expr [lindex $limits 1]]
+#puts "start = $start stop = $stop"
+set option " -frombeat $start -tobeat $stop"
+set midi(outfilename) tmp.mid
+set cmd "exec [list $midi(path_midicopy)] $option $midi(midifilein) $midi(outfilename)"
+catch {eval $cmd} result
+set exec_out "$cmd \n$result"
+play_midi_file tmp.mid
+update_console_page
+}
+
 
 proc call_compute_chordgram {source} {
 set limits [getCanvasLimits $source]
