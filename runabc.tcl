@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.335
-set runabc_date "(June 10 2022 16:00)"
+set runabc_version 2.336
+set runabc_date "(June 13 2022 17:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1078,7 +1078,8 @@ proc midi_init {} {
     set midi(use_ps_header) 1
 
     set midi(mftextunits) 2
-    set midi(notegram) fifths
+    set midi(notegram) 1
+    set midi(chordgram) 1
 
     set midi(attenuation) 20
 
@@ -24990,6 +24991,8 @@ proc compute_notegram {start stop} {
     set spacing [best_grid_spacing [expr ($tobeat - $frombeat)]]
     Graph::draw_x_grid $c $start5 $tobeat $spacing 1  0 %5.0f
     .notegram.can create rect -1 -1 -1 -1 -tags mark -fill yellow -stipple gray25
+    set fbeat $frombeat
+    set tbeat $tobeat
 }
 
 proc compute_piano_notegram {} {
@@ -26548,23 +26551,31 @@ proc chordgram_plot {source} {
 proc getCanvasLimits {source} {
 global lastbeat
 global ppqn
+global fbeat
+global tbeat
 set start -1
 set stop $lastbeat
 switch $source {
   chordgram {
     set co [.chordgram.can coords mark]
     set limits [chordgram_limits $co]
-       if {[lindex $limits 0] >= 0} {
+       if {[lindex $co 0] >= 0} {
        set start [expr [lindex $limits 0]]
        set stop  [expr [lindex $limits 1]]
+       } else {
+       set start $fbeat
+       set stop $tbeat
        }
     }
   notegram {
     set co [.notegram.can coords mark]
     set limits [notegram_limits $co]
-       if {[lindex $limits 0] >= 0} {
+       if {[lindex $co 0] >= 0} {
        set start [expr [lindex $limits 0]]
        set stop  [expr [lindex $limits 1]]
+       } else {
+       set start $fbeat
+       set stop $tbeat
        }
     }
   pianoroll {
@@ -26600,6 +26611,7 @@ switch $source {
     set stop $lastbeat
     }
   }
+#puts "start = $start stop = $stop"
 return [list $start $stop]
 }
 
@@ -26906,6 +26918,8 @@ proc compute_chordgram {start stop} {
    global chord_sequence
    global seqlength
    global chordgramLimits
+   global fbeat
+   global tbeat
    set sharpnoteslist  {C C# D D# E F F# G G# A A# B}
    set flatnoteslist   {C Db D Eb E F Gb G Ab A Bb B}
    set sharpnotes5list {C G D A E B F# C# G# D# A# F}
@@ -27009,6 +27023,8 @@ proc compute_chordgram {start stop} {
     Graph::draw_x_grid $c $start5 $stop $spacing 1  0 %5.0f $colfg
 
    .chordgram.can create rect -1 -1 -1 -1 -tags mark -fill yellow -stipple gray25
+    set fbeat $start
+    set tbeat $stop 
 }
 
 proc saveChordgramData {} {
