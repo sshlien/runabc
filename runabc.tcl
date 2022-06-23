@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.336
-set runabc_date "(June 13 2022 17:40)"
+set runabc_version 2.339
+set runabc_date "(June 23 2022 11:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -945,7 +945,6 @@ proc midi_init {} {
     set midi(history_length) 0
     for {set i 0} {$i < 10} {incr i} {set midi(history$i) ""}
     set midi(abc_default_file) edit.abc
-    set midi(abc_work_folder)  workfold
     
     for {set i 1} {$i <= 20} {incr i} {
         set midi(lvoice$i) 64
@@ -1179,12 +1178,23 @@ if {[info exist env(RUNABCPATH)]} {
      puts "created folder $runabcpath"
      cd $runabcpath
      set handle [open README.txt w]
-     puts $handle "This folder is used by runabc to store\n
-	    preferences and temporary data.\n\n\
-	    You may delete this folder if runabc is not\
-	    on your system."
+     puts $handle "
+This folder is used by runabc to store
+preferences and temporary data.
+You may delete this folder if runabc is not
+on your system.\n
+The file runabc.ini contains the user preferences
+and the initial settings. You should keep this filen
+unless you are doing a cold start. The other filesn
+are temporary work files or saved abc files that youn
+have edited. If you wish to keep these abc files, itn
+is recommended that you move them to another folder
+so that this folder does not get too cluttered.
+All the other files are temporary and can be deleted
+at any time."
     close $handle
     set nmodespath [file join $execpath nmodes.abc]
+    puts "nmodespath = $nmodespath"
     if {[file exist $nmodespath]} {file copy $nmodespath $runabcpath}
     }
 
@@ -1511,9 +1521,8 @@ $w.type add command -label "Edit file" -command  {
     update}  -font $df
 $w.type add command  -label "Edit selection" -command  {
     set outfile [extract_title_of_first_tune [title_selected] $midi(abc_open)]
-    set outfile [file join $midi(abc_work_folder) $outfile.abc]
+    append outfile .abc
     copy_selection_to_file [title_selected] $midi(abc_open) $midi(abc_default_file)
-    file mkdir "[pwd]/$midi(abc_work_folder)"
     file rename -force $midi(abc_default_file) $outfile
     abc_edit outfile
 } -font $df
@@ -3713,11 +3722,7 @@ set hlp_editor \
         When you edit selected tunes, the program makes a copy\
         of these tunes in a temporary file specified by the variable abc_default_file \
         in your runabc.ini file. (By default it is called edit.abc but you are able to\
-        change it by editing the runabc.ini file.) The file edit.abc is then renamed to\
-        a new file name based on the title of the first tune  and placed in your\
-        abc_work_folder directory also specified in runabc.ini. (Initially it is\
-        set to the name workfold.) Note that if a file of the same name already\
-        exists in that work folder, it will be overwritten without warning.\n\n\
+        change it by editing the runabc.ini file.)\n\n\
         A guitar toolbox and a grace notes toolbox are displayed to the\
         left of the edit window. Separate help buttons on these toolboxes\
         describe their operation. You may shift the toolboxes out to the\
@@ -3866,17 +3871,12 @@ proc startup_tcl_abc_edit {opt} {
     global runabcpath
     set barpickerflag [expr 1 - $opt]
     set outfile [extract_title_of_first_tune [title_selected] $midi(abc_open)]
-    set outfile [file join $midi(abc_work_folder) $outfile.abc]
-    file mkdir $midi(abc_work_folder)
     set selected_tunes [title_selected]
     copy_selection_to_file $selected_tunes $midi(abc_open) $midi(abc_default_file)
-    #encoding system $midi(encoder)
-    file rename -force $midi(abc_default_file) $outfile
-    #puts "renamed file to $outfile"
     if {$opt} {
-        tcl_abc_edit $outfile $opt
+        tcl_abc_edit $midi(abc_default_file) $opt
     } else {
-        tcl_abc_edit_with_voices $outfile $opt
+        tcl_abc_edit_with_voices $midi(abc_default_file) $opt
     }
     if {[llength $selected_tunes] > 1} {
         .abcedit.func.file.actions entryconfigure 3 -state disable}
@@ -3930,7 +3930,7 @@ proc tcl_abc_edit {abcfile toolbox} {
             $abctxtw insert end $line\n
         }
         close $edit_handle
-    }
+    } else {puts "tcl_abc_edit: cannot find $abcfile"}
     
     $abctxtw  tag configure blue -foreground blue
     
@@ -7962,10 +7962,6 @@ entry $w.10.1 -width 38 -relief sunken -textvariable midi(path_editor) -font $df
 pack $w.10.0 $w.10.1  -side left -padx 5
 bind .abc.cfg.10.1 <Return> {focus .abc.cfg.10}
 
-label $w.23.0 -text "work folder" -width 16 -padx 2  -font $df
-entry $w.23.1 -width 38 -relief sunken -textvariable midi(abc_work_folder) -font $df
-pack $w.23.0 $w.23.1  -side left -padx 5
-bind .abc.cfg.23.1 <Return> {focus .abc.cfg.23}
 
 button $w.29.0 -text "internet browser" -width 14  -font $df -command {setpath path_internet}
 entry $w.29.1 -width 38 -relief sunken -textvariable midi(path_internet) -font $df
@@ -26503,7 +26499,7 @@ the left mouse button down. Then press the zoom button. The chordgram\
 may be linked to the midi structure window or the piano roll window\
 if they are exposed.\n\n
 Clicking the save data button will record the plotted results in the\
-file chordgram.txt which can be found in the midiexplorer_home folder.\n\n
+file chordgram.txt which can be found in the runabc_home folder.\n\n
 
 Chordgram was originally a function in my program midiexplorer. It was\
 ported to this program since it looked like a useful feature to\
