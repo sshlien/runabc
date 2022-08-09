@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.339
-set runabc_date "(June 23 2022 11:00)"
+set runabc_version 2.346
+set runabc_date "(August 09 2022 16:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -90,7 +90,7 @@ if {[catch {package require Ttk} error]} {
 # Part 34.0               Drum Editor
 # Part 35.0               Gchord to voice
 # Part 36.0               Drum to voice
-# Part 37.0		  Refactor
+# Part 37.0		  Refactor, gchordsOnly
 # Part 38.0               Mode Recognition
 # Part 39.0               Advanced abcm2ps support
 # Part 40.0               Live Editor
@@ -1540,6 +1540,7 @@ menubutton $w -text edit -font $df -image misc-22  -menu $w.type -font $df -bord
 menu $w.type -tearoff 0
 $w.type add command -label "Abc2abc"        -command show_abc2abc_page -font $df
 $w.type add command -label "Gchords/drums to voice" -command g2v_startup -font $df
+$w.type add command -label "Gchords only" -command gchordsOnly -font $df
 $w.type add command -label "Reformat"   -command show_reformat_page -font $df
 $w.type add command -label "Extract part"   -command show_extract_page -font $df
 $w.type add command -label "Drum tool"    -command {drumtool_gui_setup} -font $df
@@ -1578,6 +1579,7 @@ key; however there are many other abc2abc functions available\n\n\
 'Gchords/drums to voice': the guitar chord indications are used to create\
 a separate voice in the abc notation. Similarly, the %%MIDI drum command\
 can also be expanded into a separate voice.\n\n\
+Gchords Only: removes all notes leaving guitar chords and rests.\n\n\
 Reformat: changes the way the abc notation is presented. You can change\
 the number of bars in a text line or in a music staff. You can interleave\
 the voices and etc.\n\n\
@@ -2104,7 +2106,8 @@ proc display_action {{svgviewer 1}} {
     set console_clock [clock seconds]
     set sel [title_selected]
     if {$midi(ps_creator)=="abc2svg" } {
-       tune2Xtmp_for_abc2svg $sel X.tmp 
+       set abcdata [copy_selection_to_string $sel $midi(abc_open)]
+       string2Xtmp_for_abc2svg $abcdata X.tmp 
     } else {
        copy_selected_tunes_for_display $sel X.tmp
        }
@@ -2214,7 +2217,7 @@ proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
     global ps_numb_start
     global exec_out
     global runabcpath
-    
+
     if {$midi(ps_creator) == "yaps"} {
         # YAPS
         set M $midi(yaps_lmargin)x$midi(yaps_tmargin)
@@ -2945,7 +2948,7 @@ proc tune2Xtmp {tunes abcfile} {
     set pat {[0-9]+|C|C\|}
     set outlist ""
     set dronestatus 0
-    
+
     init_voicecodebook
     foreach i $tunes {
         set loc $fileseek($i)
@@ -3060,43 +3063,34 @@ proc tune2Xtmp {tunes abcfile} {
 }
 
 
-proc tune2Xtmp_for_abc2svg {sel fileout} {
+proc string2Xtmp_for_abc2svg {abcdata fileout} {
     #copies or appends all selected tunes to an output file
-    global fileseek  exec_out
+    global exec_out
     global midi
     global ps_header
     global hasfield
 
-    for {set i 0} {$i < 20} {incr i} {
-      if {$midi(midi_chk)} {
-       set addmidi($i) 1
-       } else {
-       set addmidi($i) 0
-       }
-    }
 
 
-    set inhandle [open $midi(abc_open) r]
     set outhandle [open $fileout w]
-    set exec_out "copying $sel to $fileout"
-    foreach i $sel {
-        set loc $fileseek($i)
-        seek $inhandle $loc
-        set line [find_X_code $inhandle]
+    set exec_out "copying abcdata to $fileout"
+    foreach line [split $abcdata \n] { 
         puts $outhandle $line
-        if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
+        if {[string first "X:" $line 0] == 0} {
+          for {set i 0} {$i < 20} {incr i} {
+            if {$midi(midi_chk)} {
+             set addmidi($i) 1
+             } else {
+             set addmidi($i) 0
+             }
+          }
         if {$midi(ignoreQ) || [info exist hasfield(Q)] == 0} {
            puts $outhandle "Q: $midi(beatsize) = $midi(tempo)"
            }
-        while {[string length $line] > 0 } {
-            if {$midi(blank_lines)} {
-                set line  [get_nonblank_line $inhandle]} else {
-                set line  [get_next_line $inhandle]
-	        }
-            if {[string first "X:" $line 0] == 0} break;
-            if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
-            puts $outhandle $line
-            if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && ![info exist hasfield(V)]} {
+        }
+        if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
+        if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
+        if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && ![info exist hasfield(V)]} {
                  puts $outhandle "%%MIDI program $midi(program)"
 		 puts $outhandle "%%MIDI control 7 85"
                  if {$midi(nogchords) == 0} {puts $outhandle "%%MIDI chordprog $midi(chordprog) octave=$midi(chord_octave)"}
@@ -3106,32 +3100,31 @@ proc tune2Xtmp_for_abc2svg {sel fileout} {
                   }
 	        }
 # The procedure does not handle V: enclosed in brackets
-	    set loc [string first "V:" $line]
-	    if {$loc ==0 && $midi(midi_chk)} {
-              incr loc 2
-	      set payload [string range $line $loc end]
-	      set payload [string trimleft $payload]
-	      set vcode [lindex [split $payload] 0]
-              if {[string is integer $vcode] != 1} {
-                   set vc [vcode2numb $vcode]
-                   } else {
-                   scan $line "V:%d" vc
-	           }
-
-             if {$addmidi($vc)} {
-                 puts $outhandle "%%MIDI program $midi(voice$vc)"
-		 puts $outhandle "%%MIDI control 7 $midi(lvoice$vc)"
-		 puts $outhandle "%%MIDI control 10 $midi(pvoice$vc)"
-		 set addmidi($vc) 0
-	         }
+       set loc [string first "V:" $line]
+       if {$loc ==0 && $midi(midi_chk)} {
+           incr loc 2
+           set payload [string range $line $loc end]
+           set payload [string trimleft $payload]
+           set vcode [lindex [split $payload] 0]
+           if {[string is integer $vcode] != 1} {
+              set vc [vcode2numb $vcode]
+              } else {
+              scan $line "V:%d" vc
               }
 
-         }
-         puts $outhandle "\n"	      
+           if {$addmidi($vc)} {
+              puts $outhandle "%%MIDI program $midi(voice$vc)"
+	      puts $outhandle "%%MIDI control 7 $midi(lvoice$vc)"
+	      puts $outhandle "%%MIDI control 10 $midi(pvoice$vc)"
+	      set addmidi($vc) 0
+	      }
+           }
+
     }
-    close $inhandle
+    puts $outhandle "\n"	      
     close $outhandle
-}
+    }
+
 
 
 proc eliminate_guitar_chords {line} {
@@ -3302,6 +3295,38 @@ startup_progress "loading editor functions"
 
 # Tcl Editor and Support Functions
 
+
+proc copy_selection_to_string {tunes abcfile} {
+    global fileseek midi exec_out
+    global copyfromloc copytoloc
+
+    set edithandle [open $abcfile r]
+    fconfigure $edithandle -encoding $midi(encoder)
+    set outstring ""
+    
+    set exec_out "copying $tunes to string" 
+    foreach i $tunes {
+        set loc $fileseek($i)
+        set copyfromloc $loc
+        seek $edithandle $loc
+        set line [find_X_code $edithandle]
+        scan $line "X:%d" refno
+        append outstring $line\n 
+        while {[string length $line] > 0 } {
+            set copytoloc [tell $edithandle]
+            if {$midi(blank_lines)} {
+                set line  [get_nonblank_line $edithandle]} else {
+                set line  [get_next_line $edithandle]}
+            if {[string first "X:" $line 0] == 0} break;
+            append outstring $line\n
+        }
+        append outstring "\n"
+    }
+    
+    close $edithandle
+    if {$midi(bell_on)} bell
+    return $outstring
+}
 
 proc copy_selection_to_file {tunes abcfile outfile} {
     global fileseek midi exec_out
@@ -13641,7 +13666,13 @@ proc piano_zoom {} {
 
 proc piano_unzoom {factor} {
     global pixels_per_file
+    set displayregion [winfo width .piano.can]
+    set PixelsPerFile [expr $displayregion -8]
     set pixels_per_file [expr $pixels_per_file /$factor]
+    if {$pixels_per_file < $PixelsPerFile} {
+       set factor [expr $PixelsPerFile/$pixels_per_file]
+       set pixels_per_file $PixelsPerFile
+    }
     set xv [.piano.can xview]
     set xvl [lindex $xv 0]
     set xvr [lindex $xv 1]
@@ -13829,7 +13860,7 @@ proc piano_qnotelines {} {
     global piano_qnote_offset vspace
     global midi
     set p .piano
-    set beatoffset $midi(beat1)
+    set beatoffset [expr int($midi(beat1)+0.5)]
     $p.canx delete all
     set bounding_box [$p.can bbox all]
     set top [lindex $bounding_box 1]
@@ -14481,16 +14512,6 @@ proc drumroll_window {} {
     pack $p.normal $p.nodrum $p.onlydrum -side top -anchor w
 #    pack $p.focussel $p.mute $p.drumboost -side top -anchor w
 
-#    frame $p.muteval
-#    label $p.muteval.lab -text "mute no drum level" -font $df
-#    entry $p.muteval.ent -width 3 -font $df -textvariable midi(mutelev)
-#    pack $p.muteval.ent $p.muteval.lab -side left 
-#    pack $p.muteval -anchor w
-#    frame $p.focus
-#    entry $p.focus.ent -width 3 -font $df -textvariable midi(mutefocus)
-#    label $p.focus.lab -text "mute focus level" -font $df
-#    pack $p.focus.ent $p.focus.lab -side left
-#    pack $p.focus -anchor w
 #    frame $p.boost
 #    entry $p.boost.ent -width 3 -font $df -textvariable midi(drumloudness)
 #    label $p.boost.lab -text "selected drum loudness" -font $df
@@ -16513,13 +16534,15 @@ proc display_entire_edit_window {} {
     lappend files X1.mid
     set cmd "file delete [glob -nocomplain X*.mid]"
     catch {eval $cmd}
-    set out_fd [open X.tmp w]
-    set nlines [lindex [split [$abctxtw index end] .] 0]
-    for {set i 1} {$i <= $nlines} {incr i} {
-        set value [$abctxtw get $i.0 $i.end]
-        puts $out_fd $value
-    }
-    close $out_fd
+
+    set abcdata [$abctxtw get 1.0 end]
+    if {$midi(ps_creator) == "abc2svg"}  {
+      string2Xtmp_for_abc2svg $abcdata X.tmp
+    } else {
+      set out_fd [open X.tmp w]
+      puts $out_fd $abcdata
+      close $out_fd
+      }
     display_tunes X.tmp
 }
 
@@ -18669,7 +18692,6 @@ proc process_line {line} {
     set tupletpat  {\(\d(\:\d)*}
     set sectpat {[-,0-9]+}
 
-    #puts "process_line $line"
     
     global expandedchords
     global expandeddrums
@@ -18679,7 +18701,7 @@ proc process_line {line} {
     global dvoice
     global chosenvoice chosenvoicefound
     global midi
-    
+
     set gcgen::expandedchords_for_line ""
     set drumgen::drumnotes_for_line ""
     if {$midi(preserveGchords) == 1} {
@@ -18810,8 +18832,9 @@ proc process_line {line} {
         incr i
     }
     if {$activevoice == $chosenvoice} {
-        set expandedchords $expandedchords$gcgen::expandedchords_for_line\n
-        #puts "expandedchords = $expandedchords"
+        if {[string length $gcgen::expandedchords_for_line] > 1} {
+           set expandedchords $expandedchords$gcgen::expandedchords_for_line\n
+           }
     }
     
     if {$dvoice != 1 && $activevoice == $chosenvoice} {
@@ -18877,26 +18900,37 @@ proc gv_process_note {token} {
     set durpatf {([0-9])\/([0-9])}
     set durpatn {[0-9]+}
     set durpatd {\/([0-9])}
-    set dur2 {/+}
+    set durpatdn {([0-9]+)(\/+)}
+    set dur2 {\/+}
+    #puts "token = $token bar_accumulator = $bar_accumulator"
     if {[regexp $durpatf $token match val1 val2]} {
         set increment  [expr $gchordsetup::noteunits*$val1/$val2]
-        #puts "gv_process_note: val1 = $val1 val2 = $val2 "
+        #puts "gv_process_note: token = $token val1 = $val1 val2 = $val2 increment = $increment"
+    } elseif {
+        [regexp $durpatdn $token val1 val2]} {
+        set rep [string length $val2]
+        set fac [expr int(pow(2,$rep))]
+	#puts "durpatdn val1 = $val1 val2 = $val2 fac = $fac rep = $rep"
+	set val1 [string trim $val1 /]
+        set increment [expr $gchordsetup::noteunits*$val1/$fac] 
+        #puts "gv_process_note: increment = $increment"
     } elseif {
         [regexp $durpatd $token val1 val2]} {
         set increment  [expr $gchordsetup::noteunits/$val2]
-        #puts "gv_process_note: val1 = $val1 val2 = $val2 "
+        #puts "gv_process_note: token = $token val1 = $val1 val2 = $val2 increment = $increment"
     } elseif {
         [regexp $durpatn $token val]} {
         set increment  [expr $gchordsetup::noteunits*$val]
-        #puts "gv_process_note:  val = $val"
+        #puts "gv_process_note:  token = $token val = $val increment = $increment"
     } elseif {
         [regexp $dur2 $token val]} {
         set rep [string length $val]
         set fac [expr int(pow(2,$rep))]
         set increment  [expr $gchordsetup::noteunits/$fac]
-        #puts "token = $token rep = $rep fac = $fac increment = $increment"
+        #puts "dur2 rep = $rep fac = $fac increment = $increment"
     } else {
         set increment $gchordsetup::noteunits
+	#puts "default increment = $increment"
     }
     if {$triplet_running} {
        set increment [expr round($tupletscalefactor * $increment)]
@@ -18904,7 +18938,6 @@ proc gv_process_note {token} {
        if {$triplet_running > $tuplenotes} {set triplet_running 0}
        }
 
-    #puts "gv_process_note: token = $token increment = $increment"
     incr bar_accumulator $increment
     return
 }
@@ -19210,6 +19243,190 @@ proc g2v {} {
 #end of abcg2v.tcl
 
 
+proc gchordsOnly {} {
+global bar_accumulator
+global triplet_running
+global abctxtw
+set triplet_running 0
+set tunestring [return_selected_tune]
+set inbody 0
+set bar_accumulator 0
+set abcstring ""
+foreach line [split $tunestring \n]  {
+    if {$inbody == 0} {
+       #puts ">>$line"
+       append abcstring $line\n
+       if {[string first "X:" $line] == 0} {
+         append abcstring "N: gchords only - notes removed\n"
+         }
+      } else {
+       set gPline [gProcessLine $line]
+       if {[string trim $gPline] != ""} {
+         append abcstring $gPline\n
+         }
+      }
+    if {[string first "M:" $line] == 0} {
+      gchordsetup::setup_meter $line
+      }
+    if {[string first "L:" $line] == 0} {
+      gchordsetup::setup_unitlength $line
+      }
+    if {[string first "K:" $line] == 0} {
+        set inbody 1
+        }
+    }
+edit_empty_file
+$abctxtw insert end $abcstring
+}
+
+
+proc gProcessBarLine {token} {
+global bar_accumulator
+set finishbar ""
+if {$bar_accumulator > 0}  {
+    #puts "bar line :  $token"
+    set finishbar "z[expr $bar_accumulator/$gchordsetup::noteunits]$token"
+    }
+set bar_accumulator 0
+return $finishbar
+}
+
+proc gProcessLine {line} {
+    # Just extracts the guitar chords and adds appropriate
+    # rests. The code is based on process_line.
+
+    set barpat {\|\||\|[0-9]?|:\|\[\d|:\|[0-9]?|:\||\|:|\|\[\d|\||::}
+    set notepat {(\^*|_*|=?)([A-G]\,*|[a-g]\'*|z|x)(/?[0-9]*|[0-9]*/*[0-9]*)}
+    set gchordpat {\"[^\"]+\"}
+    set curlypat {\{[^\}]*\}}
+    set chordpat {(\[[^\]\[]*\])(/?[0-9]*|[0-9]*/*[0-9]*)}
+    set instructpat {![^!]*!}
+    set instructpat2 {\[I:(.*?)\]}
+    set tupletpat  {\(\d(\:\d)*}
+    set sectpat {[-,0-9]+}
+
+    global midi
+    global bar_accumulator
+   
+    #puts "gProcessLine: $line" 
+    
+    # scan through the whole line (including gchords)
+    set linestring ""
+    set i -1 
+    while {$i < [string length $line]} {
+        # search for bar lines
+        incr i
+        set success [regexp -indices -start $i $barpat $line location]
+        if {$success} {
+            set loc1  [lindex $location 0]
+            set loc2  [lindex $location 1]
+            if {$i == $loc1} {
+              append linestring [gProcessBarLine [string range $line $loc1 $loc2]]
+              continue
+              }
+        }
+        
+        # for repeat sections
+  #      set success [regexp -indices -start $i $sectpat $line location]
+  #      if {$success} {
+  #          puts "repeat section"
+  #          set loc1  [lindex $location 0]
+  #          set loc2  [lindex $location 1]
+  #          continue
+  #          }
+        
+        
+        set success [regexp -indices -start $i $gchordpat $line location]
+        # search for guitar chords
+        if {$success} {
+            set loc1  [lindex $location 0]
+            set loc2  [lindex $location 1]
+            if {$i == $loc1} {
+              #puts "gchord = [string range $line $loc1 $loc2]" 
+              if {$bar_accumulator > 0} {
+                 append linestring "z[expr $bar_accumulator/$gchordsetup::noteunits]"
+                 }
+              append linestring " [string range $line $loc1 $loc2]"
+              set bar_accumulator 0
+              set i  $loc2 
+              continue
+              }
+        }
+        
+        set success [regexp -indices -start $i $curlypat $line location]
+        # search and skip grace note sequences
+        if {$success} {
+            set loc1  [lindex $location 0]
+            set loc2  [lindex $location 1]
+            #  ignore grace notes in curly brackets
+            if {$loc1 == $i} {
+                set i $loc2
+                continue}
+        }
+        
+       set success [regexp -indices -start $i $tupletpat $line location]
+# search for triplet indication
+         if {$success} {
+          set loc1  [lindex $location 0]
+          set loc2  [lindex $location 1]
+          if {$loc1 == $i} {gv_process_tuplet $location $line
+            set i  $loc2
+            continue}
+        }
+
+
+        set success [regexp -indices -start $i $instructpat $line location]
+        # search and skip embedded instructions like !fff!
+        if {$success} {
+            set loc1  [lindex $location 0]
+            set loc2  [lindex $location 1]
+            if {$loc1 == $i} {
+                #    skip !fff! and similar instructions embedded in body
+                set i $loc2
+                continue}
+        }
+
+       set success [regexp -indices -start $i $instructpat2 $line location]
+      # search for embedded instructions like [I:MIDI program 3]
+        if {$success} {
+         set loc1  [lindex $location 0]
+         set loc2  [lindex $location 1]
+         if {$loc1 == $i} {
+#    skip !fff! and similar instructions embedded in body
+           gv_process_instruction $location $line
+           set i $loc2
+           continue}
+         }
+        
+        set success [regexp -indices -start $i $chordpat $line location]
+        # search for chords
+        if {$success} {
+            set loc1  [lindex $location 0]
+            set loc2  [lindex $location 1]
+            if {$loc1 == $i} {
+                gv_process_chord [string range $line $loc1 $loc2]
+                set i $loc2
+                continue}
+        }
+        
+        set success [regexp -indices -start $i $notepat $line location]
+        # search for notes
+        if {$success} {
+            set loc1  [lindex $location 0]
+            set loc2  [lindex $location 1]
+            if {$loc1 == $i} {
+                set i  $loc2
+                gv_process_note [string range $line $loc1 $loc2]
+                #puts "note [string range $line $loc1 $loc2] z[expr $bar_accumulator/$gchordsetup::noteunits]"
+
+                }
+                continue
+            }
+        
+    }
+return $linestring
+}
+
 # Part 37.0 Refactor
 
 proc disable_enable_tempo_controller {} {
@@ -19247,7 +19464,6 @@ proc extract_tune_info {} {
     set handle [open $midi(abc_open) r]
     seek $handle $loc
     gets $handle line
-    #set tunestring $line\n
     set tunestring "X: $sel\n"
     while {[gets $handle line]> 0} {
         if {[string first "X:" $line] == 0} break
@@ -19265,6 +19481,7 @@ proc extract_tune_features {tunestring} {
     global pickedmeter
     array unset hasfield
     
+    set inbody 0
     set pat {[0-9]+|C|C\|}
     set pickedmeter 4/4
     foreach line [split $tunestring \n]  {
@@ -19301,13 +19518,13 @@ proc extract_tune_features {tunestring} {
             append hasfield(W) $line\n
         } elseif {[string first "%%MIDI" $line] == 0} {
             append hasfield(MIDI) $line\n}
-        if {[string first "\"" $line] >= 0} {
+        if {[string first "\"" $line] >= 0 && $inbody == 1} {
             set hasfield(gc) " "}
         if {[string first "gchord" $line] >0} {
             append hasfield(gchord) $line}
         if {[string first "drum" $line] >0} {
             append hasfield(drum) $line}
-        
+        if {[string first "K:" $line] == 0} {set inbody 1}    
         
     }
     finish_tune
@@ -23980,9 +24197,7 @@ proc add_guitar_chords_to_tune {tunestring numb} {
       } elseif {
    [string first "M:" $line] == 0} {
        appendtext $line
-       gc_setup_meter $line
-       # one beat per bar ?
-       set beatsize [expr $barunits/$numb]
+       set beatsize [gc_setup_meter $line]
        } elseif {
    [string first "P:" $line] == 0} {
        appendtext $line
@@ -25612,7 +25827,7 @@ global exec_out
 set trkchn ""
 set option ""
 if {$midi(midishow_sep) == "track"} {
-  for {set i 0} {$i <= $ntrks} {incr i} {
+  for {set i 2} {$i <= $ntrks} {incr i} {
      if {$miditracks($i)} {append trkchn "$i,"}
      }
   if {[string length $trkchn] > 0} {
