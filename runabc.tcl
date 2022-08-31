@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.346
-set runabc_date "(August 09 2022 16:00)"
+set runabc_version 2.348
+set runabc_date "(August 31 2022 07:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -24176,9 +24176,10 @@ proc add_guitar_chords_to_tune {tunestring numb} {
  set body 0
  set bar_number 0
  foreach line [split $tunestring \n] {
-   #puts "line = $line"
    if {[string length $line] < 1} continue
-   if {[string index $line 0] == "%"} {
+   if {[string first "w:" $line] == 0 ||\
+       [string first "W:" $line] == 0 ||\
+       [string index $line 0] == "%"} {
       appendtext $line
       continue
       } elseif {
