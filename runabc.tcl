@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.348
-set runabc_date "(August 31 2022 07:00)"
+set runabc_version 2.350
+set runabc_date "(October 14 2022 15:05)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -634,13 +634,6 @@ will store internal files it needs to read and write. In particular, runabc.ini 
                     download from http://ifdo.ca/~seymour/runabc/top.html.\n"
         }
 
-        set result [check_file path_gv]
-        set xmsg "\nYou can still use runabc to display (print) the music, but you will be restricted to using abcm2ps and xhtml format.\n"
-        if {[string first "not found" $result] >= 0} {
-            set prtmsg 1
-            append msg "\nPostScript viewer was not found at $midi(path_gv) \n"
-            append msg "\n$midi(path_gv) is a PostScript file viewer. You can get \
-                    the install package from http://blog.kowalczyk.info/software/sumatrapdf/free-pdf-reader.html\n"}
         if {[file exist "c:/Program Files/gs/"] != 1} {
             set prtmsg 1
             append msg " You will also need Ghostscript which you can get from http://www.cs.wisc.edu/~ghost/index.htm\n\
@@ -665,12 +658,6 @@ will store internal files it needs to read and write. In particular, runabc.ini 
                     Either the stable or development versions are fine."
         }
         
-        set result [check_file path_gv]
-        if {[string first "not found" $result] >= 0} {
-            append msg "\nThe PostScript viewer was not found at $midi(path_gv) \n\n"
-            append msg "\nYou will need ghostscript and a PostScript file viewer.\
-                    on unix there is gs, gv, and evince. One of these should work."
-        }
 
        set result [check_file path_gs]
         if {[string first "not found" $result] >= 0} {
@@ -747,10 +734,7 @@ proc midi_init {} {
         set midi(path_abc2abc) abc2abc.exe
         set midi(path_midi2abc) midi2abc.exe
         set midi(path_midicopy) midicopy.exe
-        set midi(path_gv) "C:/Program Files/SumatraPDF/SumatraPDF.exe"
 	set midi(path_gs) ""
-        if {[file exist "C:/Program Files (x86)/SumatraPDF/SumatraPDF.exe"]} {
-           set midi(path_gv) "C:/Program Files (x86)/SumatraPDF/SumatraPDF.exe"}
            
         set midi(path_midiplayer_1) "C:/Program Files/Windows Media Player/wmplayer.exe"
         set midi(path_midiplayer_2) "C:/Program Files (x86)/Winamp/Winamp.exe"
@@ -777,7 +761,6 @@ proc midi_init {} {
         set midi(midiplayer_3_options) ""
         set midi(midiplayer_4_options) ""
         set midi(path_internet) firefox
-        set midi(path_gv) evince
         set midi(path_gs) gs
     }
 
@@ -1220,10 +1203,6 @@ if {![file exists runabc.ini]} {
  
   } else {
       read_runabc_ini $runabcpath
-      if {$midi(version) < 1.919} {
-         set midi(path_gv) $midi(path_gs)
-         set midi(path_gs) ""
-         greetings "you need to set the path to ghostscript"}
       set midi(version) $runabc_version
   }
 
@@ -2210,6 +2189,7 @@ proc copy_selected_tunes_for_display {sel filename} {
     close $outhandle
 }
 
+
 proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
 # if nodisplay == 1 only Out.ps is created
     global midi
@@ -2229,14 +2209,30 @@ proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
         if {$midi(yaps_landscape)} {append yapsopt " -l"}
         if {$midi(yaps_bbar)} {append yapsopt " -k"}
         set cmd "exec [list $midi(path_yaps)] [list $abcfile] $yapsopt"
-        catch {eval $cmd} exec_out
-        set exec_abcmps "$cmd\n\n$exec_out"
+        catch {eval $cmd} result
+        set exec_out "$cmd\n\n$result"
         if {[string first "no such" $exec_out] >= 0} {abcmidi_no_such_error $midi(path_yaps)}
+        set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
+        catch {eval $cmd} result2
+        append exec_out "\n\n$cmd\n$result2"
+
+        set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
+        catch {eval $cmd} result2
+	append exec_out "\n\n$cmd\n$result2"
+        return
         
     } elseif {$midi(ps_creator) == "other"} {
         set cmd "exec [list $midi(path_otherps)] [list $abcfile] $midi(otherps)"
-        catch {eval $cmd} exec_out
-        set exec_abcmps "$cmd\n\n$exec_out"
+        catch {eval $cmd} result
+        set exec_out "$cmd\n\n$result"
+        set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
+        catch {eval $cmd} result2
+        append exec_out "\n\n$cmd\n$result2"
+
+        set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
+        catch {eval $cmd} result2
+	append exec_out "\n\n$cmd\n$result2"
+	return
         
     } elseif {$midi(ps_creator) == "abcm2ps"} {
         set abc2psopt ""
@@ -2276,6 +2272,31 @@ proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
         
         catch {eval $cmd} exec_out
         set exec_abcmps "$cmd\n\n$exec_out"
+
+        if {$midi(m2ps_output) == "svg" } {
+            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out001.svg] &"
+            catch {eval $cmd} result2
+            append exec_out "\n\n$cmd\n$result2"
+	    return
+        } elseif {$midi(m2ps_output) == "xhtml"} {
+            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.xhtml] &"
+            catch {eval $cmd} result2
+            append exec_out "\n\n$cmd\n$result2"
+	    return
+        } elseif {$midi(m2ps_output) == "eps"} {
+	    set epsmsg "The temporary eps files can be found\
+in your $runabcpath folder"
+	    messages $epsmsg
+        } else {
+            set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
+            catch {eval $cmd} result2
+            append exec_out "\n$cmd\n$result2"
+
+            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
+            catch {eval $cmd} result2
+	    append exec_out "\n$cmd\nresult2"
+	    return
+        }
     } elseif {$midi(ps_creator) == "abc2svg"} {
 	    copytohtml $abcfile
             set cmd "exec [list $midi(path_internet)] file:[list $midi(outhtml)] &"
@@ -2292,24 +2313,15 @@ proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
            }
     if {$nodisplay == 1} {return}
 
-    if {$midi(ps_creator) == "abcm2ps"} {
-        if {$midi(m2ps_output) == "svg" } {
-            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out001.svg] &"
-        } elseif {$midi(m2ps_output) == "xhtml"} {
-            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.xhtml] &"
-        } elseif {$midi(m2ps_output) == "eps"} {
-            set cmd "exec [list $midi(path_gv)] Out001.eps &"
-	    set epsmsg "The temporary eps files can be found\
-in your $runabcpath folder"
-	    messages $epsmsg
-        } else {
-            set cmd "exec [list $midi(path_gv)] Out.ps &"
-        }
-    } else {
-        set cmd "exec [list $midi(path_gv)] Out.ps &"
+    if {$midi(ps_creator) != "abcm2ps"} {
+            set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
+            catch {eval $cmd} result2
+            append exec_out "\n$cmd\n$result2"
+            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
+	    catch {eval $cmd} exec_out
+	    set exec_out "$cmd\n$exec_out"
+	    return
     }
-   catch {eval $cmd} exec_out
-   set exec_out "$exec_abcmps\n$cmd\n\n$exec_out"
 }
 
 proc display_tunes_thru_x_tmp {abcfile} {
@@ -7908,11 +7920,6 @@ entry $w.3.1 -width 38 -relief sunken -textvariable midi(path_abc2midi) -font $d
 pack $w.3.0 $w.3.1  -side left
 bind .abc.cfg.3.1 <Return> {focus .abc.cfg.3}
 
-button $w.4.0 -text "PostScript viewer" -width 14  -command {setpath path_gv} -font $df
-entry $w.4.1 -width 38 -relief sunken -textvariable midi(path_gv) -font $df
-pack $w.4.0 $w.4.1  -side left -padx 5
-bind .abc.cfg.4.1 <Return> {focus .abc.cfg.4}
-
 button $w.30.0 -text ghostscript -width 14  -command {setpath path_gs} -font $df
 entry $w.30.1 -width 38 -relief sunken -textvariable midi(path_gs) -font $df
 pack $w.30.0 $w.30.1  -side left -padx 5
@@ -11047,7 +11054,7 @@ proc runabc_diagnostic {} {
     foreach {path ver} $abcmidilist {
         set msg "$midi($path)\t [get_version_number $midi($path)]\t$ver"
         puts $diag_output $msg}
-    foreach path {path_abcm2ps path_gv path_midiplayer_1} {
+    foreach path {path_abcm2ps path_midiplayer_1} {
         set msg "$midi($path)\t\t [check_file $path]"
         puts $diag_output $msg}
     
@@ -21496,7 +21503,10 @@ if {![file exist $midi(path_abcm2ps)]} {
 set cmd "exec [list $midi(path_abcm2ps)] X.tmp"
 catch {eval $cmd} result
 set exec_out $cmd\n$result
-set cmd "exec [list $midi(path_gv)] Out.ps &"
+set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
+catch {eval $cmd} result2
+append exec_out "\n$cmd\n$result2"
+set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
 append exec_out \n$cmd
 catch {eval $cmd} result
 append exec_out \n$result
@@ -26211,10 +26221,6 @@ puts $outhandle $abcdata
 close $outhandle
 append exec_out "display_tunes X.tmp\n"
 display_tunes X.tmp
-#set cmd "exec $midi(path_abcm2ps) -j 1 X.tmp"
-#catch {eval $cmd} exec_out
-#set exec_out $cmd\n\n$exec_out
-#set cmd "exec [list $midi(path_gv)] Out.ps &"
 catch {eval $cmd} result
 append exec_out \n$result
 }
