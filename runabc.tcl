@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.350
-set runabc_date "(October 14 2022 15:05)"
+set runabc_version 2.353
+set runabc_date "(October 18 2022 16:35)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2076,7 +2076,7 @@ set yaps_ptsize {612x792 792x1224 1224x792 612x1008 396x612 540x720 \
             612x777  720x1008}
 
 
-proc display_action {{svgviewer 1}} {
+proc display_action {} {
     global midi
     global console_clock
     global active_sheet
@@ -2091,7 +2091,7 @@ proc display_action {{svgviewer 1}} {
        copy_selected_tunes_for_display $sel X.tmp
        }
     set ps_numb_start 0
-    display_tunes X.tmp $svgviewer
+    display_tunes X.tmp 
     update_console_page
 }
 
@@ -2190,7 +2190,7 @@ proc copy_selected_tunes_for_display {sel filename} {
 }
 
 
-proc display_tunes {abcfile {svgviewer 1} {nodisplay 0}} {
+proc display_tunes {abcfile  {nodisplay 0}} {
 # if nodisplay == 1 only Out.ps is created
     global midi
     global yaps_ptsize exec_out
@@ -2306,11 +2306,6 @@ in your $runabcpath folder"
 	    return
     }
     
-    # Do not start another svg viewer if svgview is 0
-    if {!$svgviewer} {
-           set exec_out "$exec_abcmps\n$cmd\n\n$exec_out" 
-           return 
-           }
     if {$nodisplay == 1} {return}
 
     if {$midi(ps_creator) != "abcm2ps"} {
@@ -8211,45 +8206,47 @@ proc switch_ps_button {} {
 set hlp_overview "You are running runabc.tcl version $runabc_version $runabc_date\n\n\
         You can get the latest version of this application from the\
         web site http://ifdo.ca/~seymour/runabc/top.html\n\n\
-        This is a graphical user interface to abcm2ps, yaps, abcmidi, a \
-        PostScript file viewer and midi file player and many other executables.\
+        This is a graphical user interface to abcm2ps, yaps, abcmidi, \
+        ghostscript, midi file players and an internet browser.\
         If you are running the program for the first time, you need to specify\
         the path name to these executables in the configuration property sheet. \
         Click the 'Options/ABC executables' menu button and then the help button for\
         further instructions.\n\n\
         Once you have properly configured the program, use the 'file' \
         button to select the input abc file. This is a button with a picture\
-        of a file on the top left corner.) Click the browse menu to\
+        of a file on the top left corner. Click the browse menu to\
         to browse through your file structure. Alternatively, you may\
         enter the relative or absolute path name in the adjoining entry\
         box followed with a carriage return to activate. (This works only if\
         a table of contents is already displayed.) For many entry boxes\
         pressing a carriage return will remove the focus (cursor) from\
-        that box.\n\n  The abc file may consist of \
+        that box.\n\n\
+	Starting with version 2.349, runabc no longer uses an external\
+	program to display PostScript files. Instead the PostScript file\
+	is automatically converted into a pdf file using ghostscript\
+	and the pdf file is displayed using an internet browser.\
+	You can still find the temporary PostScript file, Out.ps, in\
+	the runabc_home folder.\n\n\
+	The abc file may consist of \
         a compilation of many tunes. The list of tune titles will be displayed \
-        in the listbox below. Select one or tunes and then click one \
-        of the buttons described below. To select several tunes, either sweep \
-        the mouse cursor over the tunes holding the left button down, or else \
+        in the listbox below (TOC). Select one or tunes and then click one \
+        of the buttons described below. To select several tunes \
         click on each tune while holding either the shift or control key down.\n\n\
-        Quit		Will write the runabc.ini to disk and exit the program.\n\n\
-        Play selection	Will run abc2midi on the selected tune and play the resulting \
-        midi file.\n\n\
-        Display		Will run abc2ps on the selected tune and display the output. \n\n\
-        Edit/menu	Will allow you to edit the selected tune and save only this tune \
-        in a separate  file.\n\n\
-        Console		Will display any error messages originating from abc2ps or \
-        abc2midi.\n\n\
-        The remaining buttons 'TOC', 'Play options', 'Display options' and \
-        'Options' will replace the current sheet with a property sheet that allows \
-        you to modify how the midi file or postscript file is created. There are \
-        separate help pages for each button. Click the button once for the page \
-        to appear. Click the same button again to remove that sheet. \
-        Clicking a different button will bring up a different property page. \
-        There are two possible property pages associated with the 'postscript' \
-        button. The appropriate page will be displayed depending on whether abc2ps \
-        or yaps was selected in the 'config' property page. \
-        Click the help button for further instructions when \
-        one of these property pages is in view.\n\n
+	The top row of buttons and menu buttons control the many functions\
+        of this program. Hovering the mouse pointer over one of these buttons\
+	will cause a tooltip to appear (unless you disabled this feature).\
+	The Play (speaker icon) and Display (printer icon) are probably\
+        the more important functions. Many of the other buttons, are used\
+        to configure the Play and Display functions. More details are on\
+	my web page.\  
+
+Many of the configuration functions will replace the Table of\
+	Contents (TOC) of the opened file with another window. To get\
+	back to the list of tunes in the file, click the TOC button\
+        (open book icon on the far left).\n\n\
+	The help button recognizes the current context and will replace\
+	this content with the relevant information.\
+
 
 The main page (showing the table of contents TOC) of the active\
         abc file, has a tempo slider allowing you to specify the tempo\
@@ -8259,26 +8256,21 @@ The main page (showing the table of contents TOC) of the active\
         the trough is colored red. When it is disabled, the trough is\
         grey. The size of a beat is specified by the adjoining\
         combobox at the right. If the input tune does not specify\
-        the beat size then it a beat is assumed to be 1/4 note.\n\n
+        the beat size then it is assumed to be 1/4 note.\n\
 
-Other bindings\n\n
+Other bindings\n
 The arrow, page up/down, home, end keys allow you to scroll up and\
         down the table of contents. The <cntl>-slash and <cntl>-backslash allow\
         you to select or deselect all titles in the table of contents.\
         The p key  or <space> will play the current selection and the d key will \
         display this selection. The E key will edit the file; the e key will\
-        start up TclAbcEditor.\n\n\
+        start up TclAbcEditor. Right clicking on one of the tunes will pop\
+	a menu for playing, displaying, or viewing the header data.\n\n\
 
-If your browser supports auto-reload (eg firefox with an addon) then you can\
-right click on the print button and a new copy of the browser will not\
-be called. Instead the current displayed music will be replaced in the\
-browser. This applies only to abcm2ps with xhtml or svg output.
+Seymour.Shlien  fy733@ncf.ca  Updated October 18 2022."
 
 
-Seymour.Shlien  fy733@ncf.ca February 22 2021."
-
-
-set hlp_config_1 "Configuration Property Sheet\n\n\This page is\
+set hlp_config_1 "Paths to external programs called by runabc. \n\n\This page is\
         used to specify the file path names to the various executables called\
         by this program. It is probably most convenient to put these\
         executables (except for ghostview) in the same folder as runabc.\
@@ -8293,11 +8285,7 @@ set hlp_config_1 "Configuration Property Sheet\n\n\This page is\
         this file, click on 'open' to save this path name in the entry box. The \
         contents of the entry box can also be modified by clicking to the \
         position in the box using the regular keys on your keyboard. The left \
-        and right arrow keys will move the entry cursor. Though Tcl/Tk supports \
-        long file names it may get confused if the path name includes blanks or \
-        the backward slash. If the filename or folder where the executable is \
-        found contains embedded spaces, it may be necessary to substitute the \
-        DOS filename instead.\n\n\
+        and right arrow keys will move the entry cursor.\n\n\
         The executables in the abcmidi package form the core of the program.\
         You specify the folder where all these executables are found, and\
         runabc will attempt to open these files and determine their version\
@@ -8305,14 +8293,8 @@ set hlp_config_1 "Configuration Property Sheet\n\n\This page is\
         The last column in that display specifies the minimum version number\
         expected in order for the program to run properly. Runabc will also\
         append additional buttons and entries in the options page, in case\
-        you need to tune up the pathnames to the individual abcmidi executables.\
-        This should really not be necessary. \n\n\
-        If runabc is running on Windows (98,ME,NT etc.) you can\
-        associate the abc files to runabc through the registry. Click that\
-        button and then the help button in the new window for more information.\n\n
-If you are going to play your midi files on a midi player you should \
-        also go to the 'Options/player 1' configuration page. Go to this page \
-        and click the help button for more instructions.\n\n"
+        you need to tune up the pathnames to the individual abcmidi executables.
+        "
 
 set hlp_config_2 "Midi Player\n\n\
         This configuration page is used to specify the path name \
@@ -8441,9 +8423,9 @@ set hlp_ps "Abcm2ps Boolean and Float Command Options\n\n\
     settings were chosen for a low resolution screen.  Abcm2ps\
     can also create svg and xhtml formatted output instead of\
     ps (PostScript) files. The rest of this help is restricted to\
-    abc2ps.\n\n\
+    abcm2ps.\n\n\
     Some of the new abc files, in particular the multivoiced files, may be \
-    too large for abcm2ps in its standard settings. Since abc2ps must store the \
+    too large for abcm2ps in its standard settings. Since abcm2ps must store the \
     entire score in memory, enough dynamic memory needs to be \
     allocated for all the voices and symbols. Abcm2ps normally returns a \
     message (which you can view when you press the 'console' button) when it \
@@ -8459,7 +8441,7 @@ The page sizes, correspond to the choices available in \
 set hlp_otherps "Other abc to postscript converters\n\n
 There are too many postscript converters for me to support and\
         furthermore new options are introduced every now and then.\
-        Fortunately most of the converters are clones of abc2ps and adopt\
+        Fortunately most of the converters are clones of abcm2ps and adopt\
         similar parameter conventions.\
         To handle other converters, you need to specify a path to\
         the executable in the top entry  box and the list of options\
@@ -8678,7 +8660,8 @@ set hlp_extr "Extract and Transpose Part from Score\n\n\
         Yaps and others programs in the abcMIDI package accept both formats.\n\n\
         Like the edit/abc2abc function, the part is automatically written to the\
         default abc output file, typically edit.abc. The display button produces a\
-        postscript file from this file and calls the postscript viewer. \
+        postscript file from this file, converts it into a pdf file and\
+        sends it to a browser.\
         The save file button, will allow you to rename the output file to something else.\
         The \"To editor\" button, will automatically show the resulting abc file using\
         TclAbcEditor.\n\n\
@@ -8686,7 +8669,7 @@ set hlp_extr "Extract and Transpose Part from Score\n\n\
 
 set hlp_multirests "Multirest tool functions\n\n\
         There are two conventions for representing multiple bars of rests\
-        in abc notation. If you are using abc2ps then you need to use the older notation\
+        in abc notation. If you are using abcm2ps then you need to use the older notation\
         (e.g. \"4\"z8 which means 4 bars of rests where each bar is 8 L: units). If you\
         are using abcm2ps then you should use the Zn notation (eg. Z4 indicates 4 bars\
         of rests). The functions in this sub-menu allow you to convert from one convention\
@@ -26049,8 +26032,8 @@ The display function will also copy the existing abc notation to a file\
 called X.tmp and then convert it to a PostScript file called\
 Out.ps. Then Out.ps will be forwarded to a program that you designate\
 to display this file.\n\n\  
-Midiexplorer requires, abc2midi, abcm2ps, ghostscript, and a PostScript\
-file viewer in order for these functions to work.
+Runabc.tcl requires, abc2midi, abcm2ps, and ghostscript\
+in order for these functions to work.
 "
 
 
