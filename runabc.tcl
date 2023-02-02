@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.353
-set runabc_date "(October 18 2022 16:35)"
+set runabc_version 2.354
+set runabc_date "(February 01 2023 20:30)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -3082,6 +3082,7 @@ proc string2Xtmp_for_abc2svg {abcdata fileout} {
     set outhandle [open $fileout w]
     set exec_out "copying abcdata to $fileout"
     foreach line [split $abcdata \n] { 
+        if {$midi(ignoreQ) && [string first Q: $line] == 0} continue
         puts $outhandle $line
         if {[string first "X:" $line 0] == 0} {
           for {set i 0} {$i < 20} {incr i} {
@@ -3096,7 +3097,6 @@ proc string2Xtmp_for_abc2svg {abcdata fileout} {
            }
         }
         if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
-        if {$midi(ignoreQ) && [string first "Q:" $line] == 0} continue
         if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && ![info exist hasfield(V)]} {
                  puts $outhandle "%%MIDI program $midi(program)"
 		 puts $outhandle "%%MIDI control 7 85"
