@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.354
-set runabc_date "(February 01 2023 20:30)"
+set runabc_version 2.355
+set runabc_date "(April 28 2023 15:25)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -951,6 +951,7 @@ proc midi_init {} {
     
     #find setting
     set midi(searchdir) "../abcfiles"
+    set midi(searchForFile) 0
     
     #match settings
     set midi(match_timesig) 2/4
@@ -2611,6 +2612,10 @@ proc open_abc_file {filename} {
             set modifiedflag [.live.main.editor.t edit modified]
             if $modifiedflag update_wholefile_and_toc
             }
+        if {$midi(abc_open) == $filename} {
+		#puts "$filename is already loaded"
+		return
+	}
         set midi(abc_open) $filename
         if {[winfo exist .abcedit]} {
             .abcedit.func.file.actions entryconfigure 3 -state disable}
@@ -9527,7 +9532,11 @@ proc show_file {loc} {
     set xrefno [lindex [.abcsearch.list get $loc] 0]
     
     .abc.titles.t selection set {}
-    open_abc_file $midi(searchdir)/$gfiles($file_index($loc))
+    if {!$midi(searchForFile)} {
+	    open_abc_file $midi(searchdir)/$gfiles($file_index($loc))
+       } else {
+	    open_abc_file $midi(searchdir)
+       }
     if {$midi(index_by_position)} {
        set toc_index $item_id($locator($loc))
        } else {
@@ -9593,29 +9602,38 @@ proc title_match {} {
     global searchstring
     if {[string length $searchstring] < 1} return
     set home [pwd]
-    cd $midi(searchdir)
-    pack .abcsearch.lab
-    .abcsearch.2.but configure -text stop -command stopsearching
-    .abc.functions.play  configure -state disabled
-    .abc.functions.disp  configure -state disabled
-    .abcsearch.list delete 0 end
-    set file_list [rglob *.abc]
-    set i 0
-    set listbox_line 0
-    if {[info exist file_index]} {unset file_index}
-    if {[info exist locator]} {unset locator}
-    set stopsearch 0
-    foreach filename $file_list {
+    if {!$midi(searchForFile)} {
+      cd $midi(searchdir)
+      pack .abcsearch.lab
+      .abcsearch.2.but configure -text stop -command stopsearching
+      .abc.functions.play  configure -state disabled
+      .abc.functions.disp  configure -state disabled
+      .abcsearch.list delete 0 end
+      set file_list [rglob *.abc]
+      set i 0
+      set listbox_line 0
+      if {[info exist file_index]} {unset file_index}
+      if {[info exist locator]} {unset locator}
+      set stopsearch 0
+      foreach filename $file_list {
         if {$stopsearch} break;
         set gfiles($i) $filename
         .abcsearch.lab configure -text $filename
         update
         search_string_in_title $filename $i
         incr i
-    }
-    cd $home
-    stopsearching
+      }
+      cd $home
+      stopsearching
+      } else {
+      .abcsearch.lab configure -text $midi(searchdir)
+      set stopsearch 0
+      set listbox_line 0
+      search_string_in_title $midi(searchdir) 0 
+      set gfiles(0) $midi(searchdir)
+      }
 }
+
 
 proc stopsearching {} {
     global stopsearch
@@ -10245,6 +10263,7 @@ proc match_file_browser {} {
     set filedir [file dirname $midi(searchdir)]
     set filename [tk_getOpenFile -initialdir $filedir -filetypes $types]
     if {[string length $filename] > 0} {set midi(searchdir) $filename}
+    set midi(searchForFile) 1
 }
 
 proc match_dir_browser {} {
@@ -10252,6 +10271,7 @@ proc match_dir_browser {} {
     set filedir [file dirname $midi(searchdir)]
     set filename  [tk_chooseDirectory -initialdir $filedir]
     if {[string length $filename] > 0} {set midi(searchdir) $filename}
+    set midi(searchForFile) 0
 }
 
 
