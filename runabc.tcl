@@ -1,5 +1,5 @@
 #package provide app-runabc 1.0
- 
+
 #!/bin/sh
 # the next line restarts using wish \
 exec wish8.6 "$0" "$@"
@@ -11,7 +11,7 @@ exec wish8.6 "$0" "$@"
 
 # runabc.tcl: a graphical user interface to abcMIDI and other packages
 #
-# Copyright (C) 1998-2022 Seymour Shlien
+# Copyright (C) 1998-2024 Seymour Shlien
 #
 #
 # This program is free software; you can redistribute it and/or modify
@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.355
-set runabc_date "(April 28 2023 15:25)"
+set runabc_version 2.356
+set runabc_date "(December 28 2023 14:20)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -974,6 +974,7 @@ proc midi_init {} {
     # midi2abc settings
     set midi(midifilein) Choose_input_midi_file.mid
     set midi(midifileout) test.abc
+    set midi(abcfileout) frommidi.abc
     set midi(midichannels) ""
     set midi(miditracks) ""
     set midi(beat1) ""
@@ -11907,7 +11908,7 @@ button $p.fileoutbr -text "browse" -command save_browser -font $df
 entry $p.fileinent -width 35 -textvariable midi(midifilein) -font $df
 bind $p.fileinent <Return> {focus .midi2abc.file.fileinlab
                             update_midi_summary}
-entry $p.fileoutent -width 35 -textvariable midi(midifileout) -font $df
+entry $p.fileoutent -width 35 -textvariable midi(abcfileout) -font $df
 bind $p.fileoutent <Return> {focus .midi2abc.file.fileoutlab}
 .midi2abc.file.fileinent xview moveto 1.0
 grid $p.fileinlab -sticky w
@@ -12522,7 +12523,7 @@ proc check_midi2abc_options {filein onebpl} {
     if {$midi(midibps) > 16 || $midi(midibps) < 1} {set midi(midibps) 4}
     if {$onebpl == 0} {set midi2abc_options [concat $midi2abc_options "-bpl $midi(midibpl)"]}
     set midi2abc_options [concat $midi2abc_options "-bps $midi(midibps)"]
-    if {$onebpl == 0} {set midi2abc_options [concat $midi2abc_options "-sum -o $midi(midifileout)"]}
+    if {$onebpl == 0} {set midi2abc_options [concat $midi2abc_options "-sum -o $midi(abcfileout)"]}
     if {[fileeq $midi(midifileout) $midi(abc_open)]} {
         set abc_file_mod 1
         #   puts "abc_file_mod set by check_midi_options"
