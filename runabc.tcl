@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.356
-set runabc_date "(December 28 2023 14:20)"
+set runabc_version 2.358
+set runabc_date "(September 05 2024 14:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -2805,6 +2805,9 @@ proc title_selected {} {
     global midi
     global fileseek
     global tunestart
+    global keysig
+    global useflats
+    set useflats 0
     if {$abc_file_mod}  {load_whole_file $midi(abc_open)
                          title_index $midi(abc_open)}
 
@@ -2818,7 +2821,11 @@ proc title_selected {} {
     #puts "title_selected index = $index"
     # in case index is a list 
     set xref [lindex [.abc.titles.t item [lindex $index 0] -values] 0]
-    #puts "xref = $xref"
+    set keysig [lindex [.abc.titles.t item [lindex $index 0] -values] 1]
+    set sf [key2sf $keysig]
+    #puts "xref = $xref keysig = $keysig sf = $sf"
+    if {$sf < 0} {set useflats 1}
+
     if {$midi(live_editor)} {
        if {![winfo exist .live]} {switch_live_editor}
        set tunestart $fileseek([lindex $index 0])
@@ -5219,6 +5226,47 @@ proc keytosf {keysig} {
                 [expr $sf - [lindex "0 3 3 3 5 0 2 4 -1 1" $mode]]}
     #puts $sf
 }
+
+proc makeNoteListForKeySig {keysig} {
+    global keyorder
+    global keymap
+    #puts "makeNoteListForKeySig $keysig"
+    set k [keytosf $keysig]
+    setkeymap $k
+    set note [string index $keysig 0]
+    set from [string first  $note  $keyorder]
+    set keynotelist [list]
+    for {set i 0} {$i < 7} {incr i} {
+        set key [string index $keyorder [expr $i +$from]]
+        set key $keymap($key)
+        lappend keynotelist $key
+        }
+return $keynotelist
+}
+
+proc romanSymbolsForChords {keynotelist mode} {
+ set romanMaj {M m m M M m dim}
+ set romanMin {m m M M m dim M}
+ set roman {i ii iii iv v vi vii}
+ set note2roman [dict create]
+ for {set i 0} {$i < 7} {incr i} {
+   set key [lindex $keynotelist $i]
+   if {$mode == "min"} {
+      set majmin [lindex $romanMin $i]
+   } else {
+      set majmin [lindex $romanMaj $i]
+   }
+   set romanSymbol [lindex $roman $i]
+   if {$majmin == "M"} {
+      set romanSymbol [string toupper $romanSymbol]
+      }
+   #puts "$key $romanSymbol"
+   dict set note2roman $key $romanSymbol
+   }
+return $note2roman
+}
+
+
 
 
 
@@ -12129,7 +12177,7 @@ button $p.playorig -text "play orig" -font $df -command play_original_midi
 button $p.playabc -text "play abc" -font $df -command play_generated_abc
 button $p.display -text "display" -font $df \
         -command  {set ps_numb_start 0
-            display_tunes [list $midi(midifileout)]
+            display_tunes [list $midi(abcfileout)]
             update_console_page}
 menubutton $p.edit -text "edit" -font $df -menu $p.edit.items
 menu $p.edit.items -tearoff 0
@@ -12624,7 +12672,7 @@ proc copy_midi_to_tmp {newlimits} {
        }
     append cmd " [list $midi(midifilein)] tmp.mid"
     catch {eval $cmd} midicopyresult
-    set exec_out "$cmd\n $midicopyresult\n"
+    set exec_out "$exec_out\n$cmd\n $midicopyresult\n"
     return $midicopyresult
 }
 
@@ -14020,13 +14068,31 @@ if {[winfo exists .onsetpdf]} {
   
 
 
+#proc midi_to_key {midipitch} {
+#    global note
+#    set midipitch [expr round($midipitch)]
+#    set octave [expr $midipitch/12 -1]
+#    set keyname $note([expr $midipitch % 12])
+#    return $keyname$octave
+#}
+
 proc midi_to_key {midipitch} {
     global note
+    set sharpnoteslist  {C C# D D# E F F# G G# A A# B}
+    set flatnoteslist   {C Db D Eb E F Gb G Ab A Bb B}
+    global sharpnotes
+    global flatnotes
+    global useflats
     set midipitch [expr round($midipitch)]
     set octave [expr $midipitch/12 -1]
-    set keyname $note([expr $midipitch % 12])
+    if {$useflats} {
+      set keyname [lindex $flatnoteslist [expr $midipitch % 12]]
+      } else {
+      set keyname [lindex $sharpnoteslist [expr $midipitch % 12]]
+      }
     return $keyname$octave
 }
+
 
 
 proc update_piano_txt {x y} {
@@ -19491,6 +19557,7 @@ proc extract_tune_features {tunestring} {
     global hasfield
     global pickedmeter
     array unset hasfield
+    set debug 1
     
     set inbody 0
     set pat {[0-9]+|C|C\|}
@@ -20537,9 +20604,10 @@ global pianoresult
 global midilength
 global lastbeat
 global midi
+global exec_out
 set cmd "exec [list $midi(path_midi2abc)] $midi(outfilename) -midigram"
 catch {eval $cmd} pianoresult
-#set exec_out [append exec_out "determineChordSeq:\n\n$cmd\n\n $pianoresult"]
+set exec_out [append exec_out "\n$cmd\n\n $pianoresult"]
 #update_console_page
 set nrec [llength $pianoresult]
 set midilength [lindex $pianoresult [expr $nrec -1]]
@@ -20551,10 +20619,10 @@ global midi sel
 global exec_out
 global ppqn
 global useflats
-set useflats 0
 set ppqn 480
 set sel [title_selected]
-set sel [tune2Xtmp $sel $midi(abc_open)]
+#set sel [tune2Xtmp $sel $midi(abc_open)]
+copy_selection_to_file $sel $midi(abc_open) X.tmp
 set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
 eval $cmd
 set midi(midifilein) fromAbc.mid
@@ -20566,13 +20634,14 @@ global midi sel
 global exec_out
 global ppqn
 global useflats
-set useflats 0
 set ppqn 480
 set sel [title_selected]
-set sel [tune2Xtmp $sel $midi(abc_open)]
+#set sel [tune2Xtmp $sel $midi(abc_open)]
+copy_selection_to_file $sel $midi(abc_open) X.tmp
 set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
 eval $cmd
 set midi(outfilename) fromAbc.mid
+set exec_out "abcToNotegram:\n$cmd"
 make_pianoresult
 notegram_plot none
 }
@@ -25110,9 +25179,11 @@ compute_notegram $start $stop
  
 
 proc call_compute_notegram {source} {
+global exec_out
 set limits [getCanvasLimits $source]
 set start [lindex $limits 0]
 set stop  [lindex $limits 1]
+append exec_out "\ncompute_notegram $start $stop"
 compute_notegram $start $stop
 }
 
@@ -26757,7 +26828,7 @@ proc chordgram_plot {source} {
      pack  .chordgram.head.2 .chordgram.head.play .chordgram.head.zoom .chordgram.head.unzoom .chordgram.head.save .chordgram.head.help -side left -anchor w
      pack  .chordgram.head -side top -anchor w 
      set c .chordgram.can
-     canvas $c -width $pianorollwidth -height 250 -border 3 -relief sunken
+     canvas $c -width [expr $pianorollwidth +15] -height 250 -border 3 -relief sunken
      pack $c
 
      bind .chordgram.can <ButtonPress-1> {chordgram_Button1Press %x %y}
@@ -27142,6 +27213,17 @@ proc compute_chordgram {start stop} {
    global chordgramLimits
    global fbeat
    global tbeat
+   global keysig
+   #puts "keysig = $keysig"
+   set keynotelist [list]
+   set keynotelist [makeNoteListForKeySig $keysig]
+      set majmin maj
+   if {[string range $keysig end-2 end] == "min"} {set majmin min}
+   #puts "keynotelist = $keynotelist"
+   set romanSymbols [romanSymbolsForChords $keynotelist $majmin]
+   #puts "romanSymbols keys = [dict keys $romanSymbols]"
+
+
    set sharpnoteslist  {C C# D D# E F F# G G# A A# B}
    set flatnoteslist   {C Db D Eb E F Gb G Ab A Bb B}
    set sharpnotes5list {C G D A E B F# C# G# D# A# F}
@@ -27149,7 +27231,7 @@ proc compute_chordgram {start stop} {
    set chordgramLimits [list $start $stop]
    # useflats is set by plot_pitch_class_histogram
    set xrbx [expr $pianorollwidth - 3]
-   set xlbx  40
+   set xlbx  60
    set ytbx 20
    set ybbx 220 
    set c .chordgram.can
@@ -27180,12 +27262,14 @@ proc compute_chordgram {start stop} {
      if {$midi(chordgram) == 1} {
        if {$useflats == 1} {
          set loc [lsearch $flatnotes5list $key]
+         #if {$j < 10} {puts "key = $key loc = $loc"}
          } else { 
          set loc [lsearch $sharpnotes5list $key]
          }
      } else {
        if {$useflats == 1} {
          set loc [lsearch $flatnoteslist $key]
+         #if {$j < 10} {puts "key = $key loc = $loc"}
          } else { 
          set loc [lsearch $sharpnoteslist $key]
          }
@@ -27206,20 +27290,30 @@ proc compute_chordgram {start stop} {
        }
      }
   set i 0
-  set ix 15 
+  set ix 25 
   if {$midi(chordgram) == 1} {
     if {$useflats} {
       foreach name $flatnotes5list {
          set iy [Graph::iypos [expr double($i * 16)]] 
          set iy [expr $iy - 5]
-         $c create text $ix $iy -text $name -fill $colfg
+         set notename $name
+         if {[dict exists $romanSymbols $name]} {
+           set symbol [dict get $romanSymbols $name]
+           set notename  "$name $symbol"
+           }
+         $c create text $ix $iy -text $notename -fill $colfg
          incr i
          }
       } else {
       foreach name $sharpnotes5list {
          set iy [Graph::iypos [expr double($i * 16)]] 
          set iy [expr $iy - 5]
-         $c create text $ix $iy -text $name -fill $colfg
+         set notename $name
+         if {[dict exists $romanSymbols $name]} {
+           set symbol [dict get $romanSymbols $name]
+           set notename  "$name $symbol"
+           }
+         $c create text $ix $iy -text $notename -fill $colfg
          incr i
          }
      }
@@ -27228,14 +27322,24 @@ proc compute_chordgram {start stop} {
       foreach name $flatnoteslist {
          set iy [Graph::iypos [expr double($i * 16)]] 
          set iy [expr $iy - 5]
-         $c create text $ix $iy -text $name -fill $colfg
+         set notename $name
+         if {[dict exists $romanSymbols $name]} {
+           set symbol [dict get $romanSymbols $name]
+           set notename  "$name $symbol"
+           }
+         $c create text $ix $iy -text $notename -fill $colfg
          incr i
          }
       } else {
       foreach name $sharpnoteslist {
          set iy [Graph::iypos [expr double($i * 16)]] 
          set iy [expr $iy - 5]
-         $c create text $ix $iy -text $name -fill $colfg
+         set notename $name
+         if {[dict exists $romanSymbols $name]} {
+           set symbol [dict get $romanSymbols $name]
+           set notename  "$name $symbol"
+           }
+         $c create text $ix $iy -text $notename -fill $colfg
          incr i
          }
       }
@@ -27255,7 +27359,7 @@ global chord_sequence
 global seqlength
 global chordgramLimits
 global midiTempo
-set beats2seconds [expr 60.0/double($midiTempo)]
+#set beats2seconds [expr 60.0/double($midiTempo)]
 set start [lindex $chordgramLimits 0]
 set stop [lindex $chordgramLimits 1]
 set outhandle [open "chordgram.txt" w]

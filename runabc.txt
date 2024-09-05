@@ -1,6 +1,6 @@
 Updated somewhat on August 18 2020.
 
-Runabc.tcl is now close to 2600 lines and this documentation
+Runabc.tcl is now close to 28000 lines and this documentation
 is somewhat dated.
 
 The entire source code is in just one file, runabc.tcl. It makes
