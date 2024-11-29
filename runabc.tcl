@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.358
-set runabc_date "(September 05 2024 14:00)"
+set runabc_version 2.360
+set runabc_date "(November 28 21:15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -639,7 +639,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
             append msg " You will also need Ghostscript which you can get from http://www.cs.wisc.edu/~ghost/index.htm\n\
                     This should create a folder gs in your c:/program files/ directory."
         }
-        if {$prtmsg} {append msg $xmsg
+        if {$prtmsg} {append msg "I am configuring abcm2ps to output an xthml file instead of a postscript file."
             set midi(m2ps_output)  "xhtml"
         }
     } else {
@@ -6630,7 +6630,7 @@ entry $w.shrinkent -width 10 -relief sunken -textvariable midi(ps_shrink) -font 
 label $w.staffseplab -text "staff separation" -font $df
 entry $w.staffsepent -width 10 -relief sunken -textvariable midi(ps_staffsep) -font $df
 label $w.bufflab -text "buffer size kbytes" -font $df
-spinbox $w.buffspin -from 0 -to 20 -increment 2 -font $df\
+spinbox $w.buffspin -from 0 -to 100 -increment 4 -font $df\
   -format %2.0f -width 3 -textvariable midi(ps_buffsize)
 
 
@@ -11067,12 +11067,12 @@ set hlp_grouper \
 bind . <Alt-s> {runabc_diagnostic}
 bind . <Alt-S> {runabc_diagnostic}
 
-set abcmidilist {path_abc2midi 4.48\
-            path_abc2abc 2.15\
-            path_yaps 1.87\
-            path_midi2abc 3.49\
-            path_midicopy 1.37\
-            path_abcmatch 1.79\
+set abcmidilist {path_abc2midi 4.94\
+            path_abc2abc 2.22\
+            path_yaps 1.94\
+            path_midi2abc 3.59\
+            path_midicopy 1.40\
+            path_abcmatch 1.83\
             path_abcm2ps 8.14.11}
 global abcmidilist
 

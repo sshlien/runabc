@@ -19,12 +19,12 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-LicenseFile=C:\Users\User\abc\tcl\gpl-license-for-runabc.txt
+LicenseFile=C:\Users\fy733\OneDrive\Documents\abc\tcl\gpl-license-for-runabc.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
-OutputDir=C:\Users\User\abc\tcl\Output
+OutputDir=C:\Users\fy733\OneDrive\Documents\abc\tcl\Output
 OutputBaseFilename=setup_runabc
-SetupIconFile=C:\Users\User\abc\tcl\runabc.ico
+SetupIconFile=C:\Users\fy733\OneDrive\Documents\abc\tcl\runabc.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -36,15 +36,14 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\User\abc\tcl\runabc.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\abc2abc.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\abc2midi.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\abcm2ps.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\abcmatch.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\midi2abc.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\midicopy.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\yaps.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\User\abc\tcl\abcmidi_win32\abcmatch.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\runabc.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\abc2abc.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\abc2midi.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\abcm2ps.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\abcmatch.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\midi2abc.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\midicopy.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\fy733\OneDrive\Documents\abc\tcl\abcmidi_win32_mingw64\yaps.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
