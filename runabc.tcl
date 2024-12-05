@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.360
-set runabc_date "(November 28 21:15)"
+set runabc_version 2.362
+set runabc_date "(December 03 09:50)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1598,6 +1598,9 @@ menu .abc.functions.internals.type -tearoff 0
 .abc.functions.internals.type add command -label "Processed tune" -command {show_processed_tune} -font $df
 .abc.functions.internals.type add command -label "Bar line alignment" -command {show_bar_line_alignment} -font $df
 .abc.functions.internals.type add command -label "Contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
+.abc.functions.internals.type add command -label "Midi2abc of output midi file" -font $df -command {set midi(midifilein) $midioutput
+                    show_midi2abc_page
+		  } 
 .abc.functions.internals.type add command -label "Mftext of output midi file (beats)" -font $df -command {set midi(mftextunits) 2
 			  mftextwindow $midioutput 0} 
 .abc.functions.internals.type add command -label "Mftext of output midi file (pulses)" -font $df -command {set midi(mftextunits) 3
@@ -6458,7 +6461,7 @@ proc show_config_page {subsection} {
         set cfg_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {45 26 1 20 4 30 10 23 29 22 12} }
+            1 { set w_list {45 26 28 1 20 4 30 10 23 29 22 12} }
             2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
             4 { set w_list {9 18 15 16 17 27} }
             5 { set w_list {31} }
@@ -6477,6 +6480,7 @@ proc show_config_page {subsection} {
 proc show_configure_abcmidi_packages {} {
     # abc2midi, abc2abc, yaps, midi2abc, and midicopy.
     pack .abc.cfg.3  -side top -after .abc.cfg.26
+    pack .abc.cfg.3  -side top -after .abc.cfg.28
     pack .abc.cfg.21 -side top -after .abc.cfg.3
     pack .abc.cfg.2 -side top -after .abc.cfg.21
     pack .abc.cfg.24 -side top -after .abc.cfg.2
@@ -6580,7 +6584,7 @@ proc locate_abcmidi_executables {} {
     set dirname [tk_chooseDirectory -initialdir $midi(dir_abcmidi)]
     if {[string length $dirname] < 1} return
     set midi(dir_abcmidi) $dirname
-    foreach exec {abc2midi abc2abc yaps midi2abc midicopy abcmatch abcm2ps} {
+    foreach exec {abc2abc yaps midi2abc midicopy abcmatch abcm2ps} {
         if {[file exist $dirname/$exec.exe]} {
             set midi(path_$exec) $dirname/$exec.exe
         } elseif {[file exist $dirname/$exec]} {
@@ -6592,6 +6596,13 @@ proc locate_abcmidi_executables {} {
     show_configure_abcmidi_packages
     update_console_page
 }
+
+proc locate_abc2midi_executable {} {
+    global midi
+    global exec_out
+    set exec_out ""
+    setpath path_abc2midi
+    } 
 
 
 #	Abcm2ps Property Sheet
@@ -7953,6 +7964,11 @@ button $w.26.0 -text "abcmidi folder" -width 14 -command {locate_abcmidi_executa
 entry $w.26.1 -width 38 -relief sunken -textvariable midi(dir_abcmidi) -font $df
 pack $w.26.0 $w.26.1 -side left -padx 5
 bind .abc.cfg.26.1 <Return> {focus .abc.cfg.26}
+
+button $w.28.0 -text "abc2midi" -width 14 -command {locate_abc2midi_executable} -font $df
+entry $w.28.1 -width 38 -relief sunken -textvariable midi(path_abc2midi) -font $df
+pack $w.28.0 $w.28.1 -side left -padx 5
+bind .abc.cfg.28.1 <Return> {focus .abc.cfg.28}
 
 button $w.22.0 -text abcmatch -width 14 -command {setpath path_abcmatch}  -font $df
 entry $w.22.1 -width 38 -relief sunken -textvariable midi(path_abcmatch) -font $df
