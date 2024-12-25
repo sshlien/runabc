@@ -11,7 +11,7 @@ exec wish8.6 "$0" "$@"
 
 # runabc.tcl: a graphical user interface to abcMIDI and other packages
 #
-# Copyright (C) 1998-2024 Seymour Shlien
+# Copyright (C) 1998-2025 Seymour Shlien
 #
 #
 # This program is free software; you can redistribute it and/or modify
@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.362
-set runabc_date "(December 03 09:50)"
+set runabc_version 2.363
+set runabc_date "(December 23 2024 14:00)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -878,6 +878,9 @@ proc midi_init {} {
     set midi(bassdrone) 80
     set midi(drumon) 0
     set midi(mydrum) 0
+
+    #abc2midi abc2midiu parameters
+    set midi(easyABCmode) 0 
     
     # ab2ps default parameters
     set midi(ps_creator) abcm2ps
@@ -1178,7 +1181,8 @@ so that this folder does not get too cluttered.
 All the other files are temporary and can be deleted
 at any time."
     close $handle
-    set nmodespath [file join $execpath nmodes.abc]
+    file mkdir save
+    set nmodespath [file join $execpath save/nmodes.abc]
     puts "nmodespath = $nmodespath"
     if {[file exist $nmodespath]} {file copy $nmodespath $runabcpath}
     }
@@ -1595,9 +1599,8 @@ tooltip::tooltip $w.type.copy -index 7  "click help button below"
 menubutton .abc.functions.internals -text internals -image exec-22 -menu .abc.functions.internals.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu .abc.functions.internals.type -tearoff 0
 .abc.functions.internals.type add command -label "Messages" -command {show_console_page $exec_out char} -font $df -accelerator "ctrl-m"
-.abc.functions.internals.type add command -label "Processed tune" -command {show_processed_tune} -font $df
-.abc.functions.internals.type add command -label "Bar line alignment" -command {show_bar_line_alignment} -font $df
-.abc.functions.internals.type add command -label "Contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
+.abc.functions.internals.type add command -label "View X.tmp"     -command show_tmpfile -font $df
+.abc.functions.internals.type add command -label "Save X.tmp as an abc file" -command save_tmpfile -font $df
 .abc.functions.internals.type add command -label "Midi2abc of output midi file" -font $df -command {set midi(midifilein) $midioutput
                     show_midi2abc_page
 		  } 
@@ -1605,8 +1608,8 @@ menu .abc.functions.internals.type -tearoff 0
 			  mftextwindow $midioutput 0} 
 .abc.functions.internals.type add command -label "Mftext of output midi file (pulses)" -font $df -command {set midi(mftextunits) 3
 			  mftextwindow $midioutput 0} 
-.abc.functions.internals.type add command -label "View X.tmp"     -command show_tmpfile -font $df
-.abc.functions.internals.type add command -label "Save X.tmp as an abc file" -command save_tmpfile -font $df
+.abc.functions.internals.type add command -label "Contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
+.abc.functions.internals.type add command -label "Bar line alignment" -command {show_bar_line_alignment} -font $df
 .abc.functions.internals.type add command -label "Help" -font $df \
        -command {show_message_page $hlp_internals word}
 
@@ -2001,6 +2004,7 @@ proc play_Xtmp_output {sel} {
     if {$midi(nograce) == 1} {append cmd " -NGRA"}
     if {$midi(quiet) == 1} {append cmd " -quiet"}
     if {$midi(silent) == 1} {append cmd " -silent"}
+    if {$midi(easyABCmode) == 1} {append cmd " -EA"}
     catch {eval $cmd} exec_out
     if {[string first "no such" $exec_out] >= 0} {
 	    abcmidi_no_such_error $midi(path_abc2midi)} else {
@@ -2276,17 +2280,17 @@ proc display_tunes {abcfile  {nodisplay 0}} {
                 [list $abcfile] $abc2psopt"
         
         catch {eval $cmd} exec_out
-        set exec_abcmps "$cmd\n\n$exec_out"
+        set exec_abcm2ps "$cmd\n\n$exec_out"
 
         if {$midi(m2ps_output) == "svg" } {
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out001.svg] &"
             catch {eval $cmd} result2
-            append exec_out "\n\n$cmd\n$result2"
+            set exec_out "$exec_abcm2ps\n\n$cmd\n$result2"
 	    return
         } elseif {$midi(m2ps_output) == "xhtml"} {
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.xhtml] &"
             catch {eval $cmd} result2
-            append exec_out "\n\n$cmd\n$result2"
+            set exec_out "$exec_abcm2ps\n\n$cmd\n$result2"
 	    return
         } elseif {$midi(m2ps_output) == "eps"} {
 	    set epsmsg "The temporary eps files can be found\
@@ -2295,7 +2299,7 @@ in your $runabcpath folder"
         } else {
             set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
             catch {eval $cmd} result2
-            append exec_out "\n$cmd\n$result2"
+            set  exec_out "$exec_abcm2ps\n$cmd\n$result2"
 
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
             catch {eval $cmd} result2
@@ -3734,6 +3738,8 @@ proc abc_edit {varname} {
     global midi exec_out
     global barpickerflag
     
+    puts "abc_edit $abcfile"
+
     if {[string length $midi(path_editor)] > 1} {
         set cmd "exec [list $midi(path_editor)] [list $abcfile] &"
         catch {eval $cmd} exec_out
@@ -6376,7 +6382,7 @@ proc show_midi_page {subsection} {
         switch -- $subsection {
             1 { set w_list {transpose tuning} }
             2 { set w_list {melody double chord bass beat over gchord drum drone msg} }
-            8 { set w_list {player grace divider broken barfly drummethod fermata nograce quiet silent reset} }
+            8 { set w_list {player grace divider broken barfly drummethod fermata nograce quiet silent easyABC reset} }
             13 { set w_list {drone}}
             default { set w_list "" }
         }
@@ -6396,7 +6402,7 @@ proc remove_midi_page {} {
     switch -- $midi_subsection {
         1 { set w_list {transpose tuning} }
         2 { set w_list {melody double chord bass beat over gchord drum drumpat drone msg}}
-        8 { set w_list {player grace divider barfly broken reset drummethod fermata nograce quiet silent} }
+        8 { set w_list {player grace divider barfly broken reset drummethod fermata nograce quiet silent easyABC} }
         13 { set w_list {drone}}
         default { set w_list "" }
     }
@@ -6802,8 +6808,8 @@ entry $w.5.ent -width 32 -textvariable drumentry -font $df
 label $w.6.lab -text "input voice name or number" -font $df
 entry $w.6.ent -width 10 -textvariable chosenvoice -font $df
 button $w.4.go -text "create tune" -font $df -command g2v
-label $w.7.lab -text "gchord voice id" -font $df
-label $w.8.lab -text "drums voice id" -font $df
+label $w.7.lab -text "output gchord voice id" -font $df
+label $w.8.lab -text "output drums voice id" -font $df
 entry $w.7.ent -width 10 -textvariable gchordvoiceid -font $df
 entry $w.8.ent -width 10 -textvariable drumsvoiceid -font $df
 checkbutton $w.9.but -text "use drum map" -font $df -variable midi(drummap)
@@ -7578,6 +7584,8 @@ checkbutton .abc.midi1.fermata -text "ignore fermatas" -font $df -variable midi(
 checkbutton .abc.midi1.nograce -text "ignore grace notes" -font $df -variable midi(nograce)
 checkbutton .abc.midi1.quiet -text "fewer messages" -font $df -variable midi(quiet)
 checkbutton .abc.midi1.silent -text "no messages" -font $df -variable midi(silent)
+checkbutton .abc.midi1.easyABC -text "easyABC mode" -font $df -variable midi(easyABCmode)
+
 
 set w .abc.midi1.grace
 frame $w
@@ -7663,6 +7671,7 @@ proc reset_advanced_midi {} {
     set midi(nofermata) 0
     set midi(nograce) 0
     set midi(silent) 0
+    set midi(easyABC) 0
     set midi(quiet) 0
     set midi(ratio_n) 2
     set midi(ratio_m) 1
@@ -7936,57 +7945,59 @@ for {set i 1} {$i <= 30} {incr i} {
     frame $w.$i
 }
 
+set entryWidth 45
+
 frame $w.45
 label $w.45.lab -text "ABC Executables" -font $df
 pack $w.45.lab -side left
 
 button $w.20.0 -text abcm2ps -width 14 -command {setpath path_abcm2ps}  -font $df
-entry $w.20.1 -width 38 -relief sunken -textvariable midi(path_abcm2ps) -font $df
+entry $w.20.1 -width $entryWidth -relief sunken -textvariable midi(path_abcm2ps) -font $df
 pack $w.20.0 $w.20.1  -side left -padx 5
 bind .abc.cfg.20.1 <Return> {focus .abc.cfg.20}
 
 button $w.21.0 -text abc2abc -width 14 -command {setpath path_abc2abc}  -font $df
-entry $w.21.1 -width 38 -relief sunken -textvariable midi(path_abc2abc) -font $df
+entry $w.21.1 -width $entryWidth -relief sunken -textvariable midi(path_abc2abc) -font $df
 pack $w.21.0 $w.21.1  -side left
 bind .abc.cfg.21.1 <Return> {focus .abc.cfg.21}
 
 button $w.24.0 -text midi2abc -width 14 -command {setpath path_midi2abc} -font $df
-entry $w.24.1 -width 38 -relief sunken -textvariable midi(path_midi2abc) -font $df
+entry $w.24.1 -width $entryWidth -relief sunken -textvariable midi(path_midi2abc) -font $df
 pack $w.24.0 $w.24.1 -side left
 bind .abc.cfg.24.1 <Return> {focus .abc.cfg.24}
 
 button $w.25.0 -text midicopy -width 14 -command {setpath path_midicopy} -font $df
-entry $w.25.1 -width 38 -relief sunken -textvariable midi(path_midicopy) -font $df
+entry $w.25.1 -width $entryWidth -relief sunken -textvariable midi(path_midicopy) -font $df
 pack $w.25.0 $w.25.1 -side left
 bind .abc.cfg.25.1 <Return> {focus .abc.cfg.25}
 
 button $w.26.0 -text "abcmidi folder" -width 14 -command {locate_abcmidi_executables} -font $df
-entry $w.26.1 -width 38 -relief sunken -textvariable midi(dir_abcmidi) -font $df
+entry $w.26.1 -width $entryWidth -relief sunken -textvariable midi(dir_abcmidi) -font $df
 pack $w.26.0 $w.26.1 -side left -padx 5
 bind .abc.cfg.26.1 <Return> {focus .abc.cfg.26}
 
 button $w.28.0 -text "abc2midi" -width 14 -command {locate_abc2midi_executable} -font $df
-entry $w.28.1 -width 38 -relief sunken -textvariable midi(path_abc2midi) -font $df
+entry $w.28.1 -width $entryWidth -relief sunken -textvariable midi(path_abc2midi) -font $df
 pack $w.28.0 $w.28.1 -side left -padx 5
 bind .abc.cfg.28.1 <Return> {focus .abc.cfg.28}
 
 button $w.22.0 -text abcmatch -width 14 -command {setpath path_abcmatch}  -font $df
-entry $w.22.1 -width 38 -relief sunken -textvariable midi(path_abcmatch) -font $df
+entry $w.22.1 -width $entryWidth -relief sunken -textvariable midi(path_abcmatch) -font $df
 pack $w.22.0 $w.22.1  -side left -padx 5
 bind .abc.cfg.22.1 <Return> {focus .abc.cfg.22}
 
 button $w.2.0 -text yaps -width 14  -command {setpath path_yaps} -font $df
-entry $w.2.1 -width 38 -relief sunken -textvariable midi(path_yaps) -font $df
+entry $w.2.1 -width $entryWidth -relief sunken -textvariable midi(path_yaps) -font $df
 pack $w.2.0 $w.2.1  -side left 
 bind .abc.cfg.2.1 <Return> {focus .abc.cfg.22}
 
 button $w.3.0 -text abc2midi -width 14  -command {setpath path_abc2midi} -font $df
-entry $w.3.1 -width 38 -relief sunken -textvariable midi(path_abc2midi) -font $df
+entry $w.3.1 -width $entryWidth -relief sunken -textvariable midi(path_abc2midi) -font $df
 pack $w.3.0 $w.3.1  -side left
 bind .abc.cfg.3.1 <Return> {focus .abc.cfg.3}
 
 button $w.30.0 -text ghostscript -width 14  -command {setpath path_gs} -font $df
-entry $w.30.1 -width 38 -relief sunken -textvariable midi(path_gs) -font $df
+entry $w.30.1 -width $entryWidth -relief sunken -textvariable midi(path_gs) -font $df
 pack $w.30.0 $w.30.1  -side left -padx 5
 bind .abc.cfg.30.1 <Return> {focus .abc.cfg.4}
 
@@ -8055,13 +8066,13 @@ bind $w.9.1 <Return> {
     focus .abc.cfg.9.0}
 
 button $w.10.0 -text editor -width 14  -command {setpath path_editor} -font $df
-entry $w.10.1 -width 38 -relief sunken -textvariable midi(path_editor) -font $df
+entry $w.10.1 -width $entryWidth -relief sunken -textvariable midi(path_editor) -font $df
 pack $w.10.0 $w.10.1  -side left -padx 5
 bind .abc.cfg.10.1 <Return> {focus .abc.cfg.10}
 
 
 button $w.29.0 -text "internet browser" -width 14  -font $df -command {setpath path_internet}
-entry $w.29.1 -width 38 -relief sunken -textvariable midi(path_internet) -font $df
+entry $w.29.1 -width $entryWidth -relief sunken -textvariable midi(path_internet) -font $df
 pack $w.29.0 $w.29.1 -side left -padx 5
 bind .abc.cfg.29.1 <Return> {focus .abc.cfg.29}
 
@@ -11725,6 +11736,8 @@ proc show_data_page {text wrapmode clean}  {
         pack $p.ysbar -side right -fill y -in $p
         pack $p.t -in $p -expand true -fill both
         button $p.clean -text cleanup -font $df -command cleanup
+        tooltip::tooltip $p.clean "remove all files in this folder with .abc .html .mid .out
+.pdf .pgm .ps .svg .tmp .txt and .xhtml extensions"
     }
      
     if {$clean == 1} {pack $p.clean
@@ -11768,12 +11781,6 @@ proc highlight_xtmp_line {line charpos} {
     set tmp_clock $console_clock
 }
 
-proc show_processed_tune {} {
-    set showhandle [open X.tmp r]
-    set processed_tune [read $showhandle]
-    show_data_page $processed_tune char 0
-    close $showhandle
-}
 
 proc show_bar_line_alignment {} {
     global midi
@@ -11839,7 +11846,7 @@ proc show_bar_line_alignment {} {
 proc dirhome {} {
 set textout ""
 set filelist [glob *]
-append textout "\trunabc_home\n\n"
+append textout "\t[pwd]\n\n"
 set filedata {}
 foreach filename $filelist {
 	file stat $filename filestats
@@ -11862,16 +11869,18 @@ set filelist [glob *]
 foreach item $filelist {
   set ext [file extension $item]
   switch $ext {
+          .abc -
 	  .pgm -
 	  .svg -
 	  .mid -
+          .html -
+          .tmp -
+          .txt -
+          .out -
+          .ps -
+          .pdf -
 	  .xhtml { file delete $item}
   }
- if {$item == "interleave.abc"} {file delete $item}
- if {$item == "edit.abc"} {file delete $item}
- if {$item == "match.abc"} {file delete $item}
- if {$item == "barloc.txt"} {file delete $item}
- if {$item == "runabc.out"} {file delete $item}
  }
  dirhome
 }
@@ -11879,28 +11888,29 @@ foreach item $filelist {
 
 set hlp_internals "Internals\n\n\
 
-The menu buttons on this page provide additional insight on how this program\
-runs.\n\n\ The messages command, opens a window which shows the communications\
-between this program and other executables. The information in this\
-window is automatically updated whenever you take an action like creating\
-and displaying a midi file, or creating a music score and displaying it.\
-Error messages and warnings returned by these executables are shown in\
-this window.\n\n\
-Processed tune shows the contents of the abc file that is sent to one\
-of the executables. The processed tune may contain additional comments\
-which are recognized by the execuable. For example, comments specifying\
-the midi programs to be assigned to the various voices are typically\
-added when you play the abc tune.\n\n\
-Bar line alignment is a new feature which is still experimental. If there\
-is a loss of synchronization between the voices, the number of beats\
-versus bar lines may not match across the different voices. This\
-information is shown is a separate window.\n\n\
-Abc2midi produces a temporary midi file (ex X2.mid) when you play any tune. This\
-file is stored in runabc_home folder. As a convenience, you can view\
-a text representation of the file using mftext of the output processed\
-file. These temporary midi files disappear or replaced each time you\
-you play a tune. The contents of these windows are not automatically\
-refreshed; so you need to click on this menu button again.
+This menu contains tools for tracking problems that may occur with\
+the external programs Abc2midi, abcm2ps, abc2svg, that process your\
+input file. Error and warning messages returned by these applications\
+are returned in the message window.  The information in this\
+window may be updated whenever you take an action like creating\
+and displaying a midi file. These warnings and errors can be linked\
+to the particular line in the abc file by clicking the appropriate link.\n\n\ 
+X.tmp is the file produced by runabc and contains the extracted tune\
+(from a collection) which contains additional instructions\
+for abc2midi (%%MIDI) or abcm2ps. You can view this file or save\
+it under a different name.\n\n\
+When you play a tune, runabc.tcl creates X.tmp from the selected tune\
+and then calls abc2midi to convert X.tmp into a midi file. There are\
+several functions to view the midi file in textual form (mftext)\
+or display its abc form when the midi file is converted  back to an\
+abc file using midi2abc.\n\n\ 
+Runabc_home contains runabc.ini the file which initializes runabc when\
+you start it. There are also some temporary files like X.tmp.\
+These files are automatically replaced or deleted. You can view the contents\
+of runabc_home, and clean up some of the lingering files.\n\n\
+Bar line alignment is an feature which lists the number of beats\
+in each bar for each voice. It is useful to locate the bar where\
+you start to lose synchronization between the voices.
 "
 
 # end of source.tcl
@@ -12199,7 +12209,7 @@ menubutton $p.edit -text "edit" -font $df -menu $p.edit.items
 menu $p.edit.items -tearoff 0
 $p.edit.items add command -label TclAbcEditor -command {midi2abc_tcl_abc_edit 1} -font $df
 $p.edit.items add command -label TclMultiVoiceEditor -command {midi2abc_tcl_abc_edit 0} -font $df
-$p.edit.items add command -label Editor -command {abc_edit midi(midifileout)} -font $df
+$p.edit.items add command -label Editor -command {abc_edit midi(abcfileout)} -font $df
 $p.edit.items add command -label "Big Editor" -command big_create_abc_file -font $df
 
 pack $p.go $p.default $p.playorig $p.playabc $p.display $p.edit  -side left -anchor w
@@ -12614,9 +12624,9 @@ proc midi2abc_tcl_abc_edit {opt} {
     #file rename -force $midi(abc_default_file) $outfile
     #puts "renamed file to $outfile"
     if {$opt} {
-        tcl_abc_edit $midi(midifileout) $opt
+        tcl_abc_edit $midi(abcfileout) $opt
     } else {
-        tcl_abc_edit_with_voices $midi(midifileout) $opt
+        tcl_abc_edit_with_voices $midi(abcfileout) $opt
     }
     .abcedit.func.file.actions entryconfigure 3 -state disable
 }
@@ -15869,9 +15879,12 @@ proc mftextwindow {midifilein nofile} {
              set midifilein [midi_file_browser]
              output_mftext [list $midifilein]
              }
+        button $f.1.save -text save -font $df -command {
+             output_mftext_to_file [list $midi(midifilein)]
+             }
         button $f.1.help -text help -font $df\
             -command {show_message_page $hlp_mftext word}
-        pack $f.1.lab  $f.1.browse $f.1.filent $f.1.help -side left
+        pack $f.1.lab  $f.1.browse $f.1.filent $f.1.save $f.1.help -side left
         pack $f.1
         frame $f.2
         pack $f.1 $f.2 -side top
@@ -15936,7 +15949,7 @@ proc output_mftext {midifilein} {
         if {[info exist elidetrk]} {unset elidetrk}
     }
     if {[winfo exist .mftext.31]} {destroy .mftext.31}
-    text .mftext.2.txt -yscrollcommand {.mftext.2.scroll set} -width 52 -font $df
+    text .mftext.2.txt -yscrollcommand {.mftext.2.scroll set} -width 80 -font $df
     scrollbar .mftext.2.scroll -orient vertical -command {.mftext.2.txt yview}
     pack .mftext.2.txt .mftext.2.scroll -side left -fill y
     if {$midi(mftextunits) == 2} {
@@ -15956,8 +15969,23 @@ proc output_mftext {midifilein} {
         set elidetrk($i) 0
         elide_reveal_track $i
         }
+}
 
-
+proc output_mftext_to_file {midifilein} {
+global midi
+set types {{{text files} {*.txt}}
+    {{all} {*}}}
+if {$midi(mftextunits) == 2} {
+    set cmd "exec [list $midi(path_midi2abc)] $midifilein -mftext"
+    } else {
+    set cmd "exec [list $midi(path_midi2abc)] $midifilein -mftextpulses"
+    }
+catch {eval $cmd} mftextresults
+set filename [tk_getSaveFile -filetypes $types]
+set outhandle [open $filename "w"]
+puts $outhandle $mftextresults
+close $outhandle
+show_console_page "saved to $filename" w
 }
 
 
@@ -18760,6 +18788,13 @@ proc process_voice {line} {
     #set activevoice [lindex $tline 0]
 }
 
+proc process_voice_for_g2v {line} {
+global activevoice
+set tline [string range $line 2 end]
+set tline [split $tline]
+set activevoice [lindex $tline 0]
+}
+
 
 proc process_line {line} {
     # processes the notes in a single line of the body in sequence.
@@ -19166,7 +19201,7 @@ proc gv_process_tune {tunestring} {
             gv_process_post_P $line
         } elseif {
             [string first "V:" $line] == 0} {
-            process_voice $line
+            process_voice_for_g2v $line
             appendtext $line
             incr nvoices
         } elseif {
@@ -20873,7 +20908,7 @@ namespace eval Matcher {
         set k 0
         if {![file exist $midi(moderef)]} {
           if {[file exist nmodes.abc]} {
-             exec $midi(path_abcmatch) nmodes.abc -pitch_table > nmodes.tab
+             exec $midi(path_abcmatch) save/nmodes.abc -pitch_table > nmodes.tab
              messages "I could not find $midi(moderef) but I found nmodes.abc.\
 I converted nmodes.abc to nmodes.tab and made it the reference database."
              set midi(moderef) nmodes.tab
@@ -20883,9 +20918,6 @@ I converted nmodes.abc to nmodes.tab and made it the reference database."
              expose_histmatches
              return
              }
-          #exec $midi(path_abcmatch) nmodes.abc -pitch_table > nmodes.tab
-          #messages "nmodes.tab was created from nmodes.abc"
-          #set midi(moderef) nmodes.tab
         }
         if {[file extension $midi(moderef)] != ".tab"} {
              make_tab_file
