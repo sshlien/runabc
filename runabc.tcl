@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.363
-set runabc_date "(December 23 2024 14:00)"
+set runabc_version 2.364
+set runabc_date "(December 25 2024 15:15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -3100,6 +3100,7 @@ proc string2Xtmp_for_abc2svg {abcdata fileout} {
 
 
     set outhandle [open $fileout w]
+    fconfigure $outhandle -encoding utf-8
     set exec_out "copying abcdata to $fileout"
     foreach line [split $abcdata \n] { 
         if {$midi(ignoreQ) && [string first Q: $line] == 0} continue
