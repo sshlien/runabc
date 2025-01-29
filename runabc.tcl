@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.364
-set runabc_date "(December 25 2024 15:15)"
+set runabc_version 2.367
+set runabc_date "(January 29 2025 10:05)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1062,7 +1062,7 @@ proc midi_init {} {
 
     set midi(use_midi_header) 1
     set midi(noMIDI) 0
-    set midi(use_ps_header) 1
+    set midi(use_abc_header) 1
 
     set midi(mftextunits) 2
     set midi(notegram) 1
@@ -1608,6 +1608,8 @@ menu .abc.functions.internals.type -tearoff 0
 			  mftextwindow $midioutput 0} 
 .abc.functions.internals.type add command -label "Mftext of output midi file (pulses)" -font $df -command {set midi(mftextunits) 3
 			  mftextwindow $midioutput 0} 
+.abc.functions.internals.type add command -label "Midinotes of output midi file" -font $df\
+   -command {midinoteswindow $midioutput}
 .abc.functions.internals.type add command -label "Contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
 .abc.functions.internals.type add command -label "Bar line alignment" -command {show_bar_line_alignment} -font $df
 .abc.functions.internals.type add command -label "Help" -font $df \
@@ -1639,6 +1641,8 @@ menu .abc.functions.midi.type -tearoff 0
 .abc.functions.midi.type add command -label "Mftext by pulses" -font $df  -command {
    set midi(mftextunits) 3
    mftextwindow $midi(midifilein) 0}
+.abc.functions.midi.type add command -label "Midinotes" -font $df\
+ -command {midinoteswindow $midi(midifilein)}
 
 # second row of buttons
 button .abc.functions.toc -text toc -image content-22 -command show_titles_page -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -font $df
@@ -1661,7 +1665,7 @@ $w.type add command  -label Help -command {show_message_page $hlp_playopt word} 
 set w .abc.functions.yaps
 menubutton $w  -text "yaps opts" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add command -label options -command {show_ps_page yaps} -font $df
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
@@ -1676,7 +1680,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 set w .abc.functions.abc2svg
 menubutton $w  -text "abc2svg" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add command -label "create format file" -font $df \
   -command setup_m2ps
 $w.type add command -label options -command {show_ps_page abc2svg} -font $df
@@ -1692,7 +1696,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 set w .abc.functions.abc2ps
 menubutton $w   -text "abc2ps options" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add command -label "boolean command options"  -command {show_ps_page m2psbool} -font $df
 $w.type add command -label "numeric command options" -command {show_ps_page m2psfloat}  -font $df
 $w.type add command -label "create format data" -font $df \
@@ -1712,7 +1716,7 @@ $w.type.selector add radiobutton -label abc2svg -variable midi(ps_creator) \
 set w .abc.functions.otherps
 menubutton $w   -text "other ps" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
-$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add  radiobutton -label "options" -font $df  -command show_other_ps
 $w.type add cascade -label "ps converter" -menu $w.type.selector -font $df
 menu $w.type.selector -tearoff 0
@@ -1736,7 +1740,7 @@ $w.type add command -label "Character encoding" -command {show_config_page 5} -f
 $w.type add command -label  "Button style" -command {show_config_page 6} -font $df
 $w.type add checkbutton -label "Remember locations of windows" -font $df\
  -variable midi(autoposition)
-$w.type add checkbutton  -label "Use ps header" -font $df -variable midi(use_ps_header)
+$w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add checkbutton -label "Index by position" -variable midi(index_by_position) -font $df
 $w.type add checkbutton -label "Ignore blank lines" -variable midi(blank_lines)  -font $df
 $w.type add checkbutton -label "Bell on file write" -variable midi(bell_on)  -font $df
@@ -2183,7 +2187,7 @@ proc copy_selected_tunes_for_display {sel filename} {
         seek $edithandle $loc
         set line [find_X_code $edithandle]
         puts $outhandle $line
-        if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
+        if {[string length $ps_header] > 0 && $midi(use_abc_header)} {puts $outhandle $ps_header}
         incr n
         while {[string length $line] > 0 } {
             if {$midi(blank_lines)} {
@@ -2311,6 +2315,8 @@ in your $runabcpath folder"
             set cmd "exec [list $midi(path_internet)] file:[list $midi(outhtml)] &"
 	    catch {eval $cmd} exec_out
 	    set exec_out "$cmd\n$exec_out"
+            #puts "for abc2svg: cmd = $cmd exec_out = $exec_out "
+
 
 	    return
     }
@@ -2675,7 +2681,8 @@ proc title_index {abcfile} {
     set i 1
     .abc.titles.t tag configure tune -font $df
 
-    #extract any %%MIDI commands in the header
+    #extract any %%MIDI ps, or svg commands in the header
+    #and save it in ps_header
     set midi_header {}
     set ps_header {}
     while {[gets $titlehandle line] >= 0} {
@@ -2690,17 +2697,12 @@ proc title_index {abcfile} {
             }
         if {[string first "%%MIDI" $line] == 0 } {
             append midi_header $line\n
-        } elseif {[string first "%%" $line] == 0 } {
+        } else {
             append ps_header $line\n
-            if {[string first "%%beginps" $line] == 0} {
-              while {[gets $titlehandle line] >= 0} {
-                  append ps_header $line\n
-                  if {[string first "%%endps" $line] == 0} break
-                  }
-             }
         }
     }
 
+   # encountered first X: command
 
     while {[gets $titlehandle line] >= 0} {
         if {!$midi(blank_lines) && [string length $line] < 1} {set srch X}
@@ -3097,8 +3099,7 @@ proc string2Xtmp_for_abc2svg {abcdata fileout} {
     global ps_header
     global hasfield
 
-
-
+    set headerDone 0
     set outhandle [open $fileout w]
     fconfigure $outhandle -encoding utf-8
     set exec_out "copying abcdata to $fileout"
@@ -3117,7 +3118,10 @@ proc string2Xtmp_for_abc2svg {abcdata fileout} {
            puts $outhandle "Q: $midi(beatsize) = $midi(tempo)"
            }
         }
-        if {[string length $ps_header] > 0 && $midi(use_ps_header)} {puts $outhandle $ps_header}
+        if {[string length $ps_header] > 0 && $midi(use_abc_header) && !$headerDone} {
+            puts $outhandle $ps_header
+            set headerDone 1
+    }
         if {[string first "K:" $line] == 0 && $addmidi(0) == 1 && ![info exist hasfield(V)]} {
                  puts $outhandle "%%MIDI program $midi(program)"
 		 puts $outhandle "%%MIDI control 7 85"
@@ -6980,7 +6984,7 @@ which is accesible from the menu item abc2svg/create format file.
 
 set w .abc.abc2svg
 frame $w
-checkbutton $w.formchk -variable midi(fmt_chk) -text "include ps header" -font $df
+checkbutton $w.formchk -variable midi(fmt_chk) -text "load format file" -font $df
 checkbutton $w.midichk -variable midi(midi_chk) -text "include midi settings" -font $df
 checkbutton $w.replaceQ -variable midi(ignoreQ) -text "Override tempo"\
  -command disable_enable_tempo_controller -font $df
@@ -8446,7 +8450,7 @@ of the interface. Click on any of the radio buttons and then apply the\
 new options by clicking on the activate button."
 
 set hlp_cfg "Other configuration items\n\n\
-Use ps header: if checked all the postscript commands beginning with %%\
+Use abc header: if checked all the header commands 
 occurring in the beginning of abc file (before the first X:)\
 will be inserted in the selected tune before it is displayed.\n
 greetings: shows the start up message you see the first time you run runabc.tcl\
@@ -11098,7 +11102,7 @@ bind . <Alt-S> {runabc_diagnostic}
 set abcmidilist {path_abc2midi 4.94\
             path_abc2abc 2.22\
             path_yaps 1.94\
-            path_midi2abc 3.59\
+            path_midi2abc 3.60\
             path_midicopy 1.40\
             path_abcmatch 1.83\
             path_abcm2ps 8.14.11}
@@ -15866,7 +15870,7 @@ set hlp_associate "For Windows only -- associate abc files with runabc\n\n\
 
 #source mftextwin.tcl
 
-proc mftextwindow {midifilein nofile} {
+proc mftextwindow {midifile nofile} {
     global midi df
     global mfnotes mftouch mfcntl mfprog mfmeta
     set f .mftext
@@ -15878,7 +15882,7 @@ proc mftextwindow {midifilein nofile} {
         entry $f.1.filent -textvariable midi(midifilein)  -font $df -width 35 
         button $f.1.browse -text browse -font $df -command {
              set midifilein [midi_file_browser]
-             output_mftext [list $midifilein]
+             output_mftext [list $midi(midifilein)]
              }
         button $f.1.save -text save -font $df -command {
              output_mftext_to_file [list $midi(midifilein)]
@@ -15914,7 +15918,7 @@ proc mftextwindow {midifilein nofile} {
         pack $f.lab $f.note $f.touch $f.prog $f.meta $f.cntl -side left
         pack $f -side top -anchor w
     }
-    set midi(midifilein) $midifilein 
+    set midi(midifilein) $midifile 
     .mftext.1.filent configure -textvariable midi(midifilein)
     
     if {$nofile} {
@@ -15923,8 +15927,8 @@ proc mftextwindow {midifilein nofile} {
        pack .mftext.1 -before .mftext.2 
        }
 
-    if {[file isfile $midifilein]} {
-       output_mftext [list $midifilein]
+    if {[file isfile $midi(midifilein)]} {
+       output_mftext [list $midi(midifilein)]
       } else {
        show_message_page "Unable to open input file $midifilein. Select one using \
                 the browse button on the top.\n" word
@@ -16008,7 +16012,7 @@ proc tag_and_insert_mftext_line {line} {
         $f tag bind tr$trk <1> "elide_reveal_track $trk"
         $f tag bind tr$trk <Enter> "$f tag configure tr$trk -foreground red"
         $f tag bind tr$trk <Leave> "$f tag configure tr$trk -foreground blue"
-    } else {
+    } elseif {[llength $linelist] > 1} {
         regexp $pat $linelist keyword
         switch $keyword {
             Note {set type note}
@@ -23513,7 +23517,7 @@ proc update_musicscore {tunecontent} {
     global exec_out
     global pgmindex npgms
     global live_refreshed
-    if {$midi(use_ps_header)} {
+    if {$midi(use_abc_header)} {
         set atunecontent [insert_ps_header $tunecontent]
         set psheader_lines [countlines_in $ps_header]
         #puts "psheader_lines = $psheader_lines"
@@ -23810,7 +23814,7 @@ set hlp_live_editor \
      This feature may not work correctly if the PostScript header block\
      appearing before the first X: reference command is imported and\
      modifies the scale factor. (You may need to untick the option\
-     'Use ps header' in the options menu.)\n\n\
+     'Use abc header' in the options menu.)\n\n\
      In the case that the score does not fit on a page, the top arrow buttons allow you\
      to go to the first, next, previous, or final page. The page number and number\
      of pages is shown as a fraction in the middle.\n\n\
@@ -27460,6 +27464,87 @@ set types {{{tcl files} {*.tcl}}}
 set extension [tk_getOpenFile -filetypes $types]
 source $extension
 }
+
+# Part 49.0       Midinotes interface
+
+set hlp_midinotes "midinotes
+
+This function displays the midi notes in a compact form.\
+Its main use is to verify the integrity of the abc\
+representation and its abc2midi output.\n\n\
+The output lists the note sequence number, beat position,\
+track number, channel number, midi pitch, and pitchbend\
+value. A pitchbend of 8192 indicates that the notes\
+pitch has not been altered.\n\n\
+The save button allows you to save this output to\
+a file.
+"
+
+proc midinoteswindow {midifile} {
+global df
+global midi
+set f .midinotes
+if {[winfo exist $f] == 0} {
+  toplevel $f
+  #position_window ".midinotes"
+  frame $f.1
+  label $f.1.lab -text "input midi file" -font $df
+  set midi(midifilein) $midifile
+  entry $f.1.filent -textvariable midi(midifilein)  -font $df -width 35 
+  button $f.1.browse -text browse -font $df -command {
+       set midifilein [midi_file_browser]
+       output_midinotes [list $midi(midifilein)]
+       }
+  button $f.1.save -text save -font $df\
+      -command {output_midinotes_to_file [list $midi(midifilein)]}
+  button $f.1.help -text help -font $df\
+            -command {show_message_page $hlp_midinotes word}
+  pack $f.1.lab  $f.1.browse $f.1.filent $f.1.save $f.1.help -side left
+  pack $f.1
+  frame $f.2
+  pack $f.1 $f.2 -side top
+  bind $f.1.filent <Return> {focus .midinotes
+                  output_midinotes [list $midi(midifilein)]} 
+  }
+output_midinotes [list $midi(midifilein)]
+}
+
+proc output_midinotes {midifilein} {
+global midi exec_out
+global df
+global midinotescmd
+if {[winfo exist .midinotes.2.txt]} {
+  destroy .midinotes.2.txt
+  destroy .midinotes.2.scroll
+  }
+
+text .midinotes.2.txt -yscrollcommand {.midinotes.2.scroll set} -width 80 -font $df
+scrollbar .midinotes.2.scroll -orient vertical -command {.midinotes.2.txt yview}
+pack .midinotes.2.txt .midinotes.2.scroll -side left -fill y
+set midinotescmd "exec [list $midi(path_midi2abc)] $midifilein -midinotes_notime"
+catch {eval $midinotescmd} midinotesresults
+set exec_out $midinotesresults
+if {[string first "no such" $exec_out] >= 0} {abcmidi_no_such_error $midi(path_midi2abc)}
+    #$f delete 1.0 end
+set mflines [split $midinotesresults \n]
+foreach line $mflines {
+    .midinotes.2.txt insert end $line\n
+    }
+}
+
+proc output_midinotes_to_file {midifilein} {
+global midi
+global midinotescmd
+set types {{{text files} {*.txt}}
+    {{all} {*}}}
+catch {eval $midinotescmd} midinotesresults
+set filename [tk_getSaveFile -filetypes $types]
+set outhandle [open $filename "w"]
+puts $outhandle $midinotesresults
+close $outhandle
+show_console_page "saved to $filename" w
+}
+
 
 # main program starts here
 
