@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.367
-set runabc_date "(January 29 2025 10:05)"
+set runabc_version 2.368
+set runabc_date "(January 30 2025 17:05)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -27521,8 +27521,10 @@ if {[winfo exist .midinotes.2.txt]} {
 text .midinotes.2.txt -yscrollcommand {.midinotes.2.scroll set} -width 80 -font $df
 scrollbar .midinotes.2.scroll -orient vertical -command {.midinotes.2.txt yview}
 pack .midinotes.2.txt .midinotes.2.scroll -side left -fill y
-set midinotescmd "exec [list $midi(path_midi2abc)] $midifilein -midinotes_notime"
-catch {eval $midinotescmd} midinotesresults
+set midinotescmd "exec [list $midi(path_midi2abc)] $midifilein -midinotes-brief"
+puts "midinotescmd = $midinotescmd"
+
+catch {eval  $midinotescmd} midinotesresults
 set exec_out $midinotesresults
 if {[string first "no such" $exec_out] >= 0} {abcmidi_no_such_error $midi(path_midi2abc)}
     #$f delete 1.0 end
