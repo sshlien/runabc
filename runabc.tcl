@@ -11,7 +11,7 @@ exec wish8.6 "$0" "$@"
 
 # runabc.tcl: a graphical user interface to abcMIDI and other packages
 #
-# Copyright (C) 1998-2025 Seymour Shlien
+# Copyright (C) 1998-2026 Seymour Shlien
 #
 #
 # This program is free software; you can redistribute it and/or modify
@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.368
-set runabc_date "(January 30 2025 17:05)"
+set runabc_version 2.371
+set runabc_date "(April 10 2026 07:12)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -102,6 +102,8 @@ if {[catch {package require Ttk} error]} {
 # Part 46.0               pgram
 # Part 47.0               chordgram
 # Part 48.0               get_geometry_of_all_toplevels
+# Part 49.0               midinotes
+# Part 50.0               Links to other abc interfaces
 
 
 
@@ -734,6 +736,8 @@ proc midi_init {} {
         set midi(path_abc2abc) abc2abc.exe
         set midi(path_midi2abc) midi2abc.exe
         set midi(path_midicopy) midicopy.exe
+	#set midi(path_ABCarus) ABCarus-x86_64.AppImage
+        set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
 	set midi(path_gs) ""
            
         set midi(path_midiplayer_1) "C:/Program Files/Windows Media Player/wmplayer.exe"
@@ -752,6 +756,7 @@ proc midi_init {} {
         set midi(path_abc2abc) abc2abc
         set midi(path_midi2abc) midi2abc
         set midi(path_midicopy) midicopy
+        set midi(path_ABCarus) ABCarus-x86_64.AppImage
         set midi(path_midiplayer_1) timidity
         set midi(path_midiplayer_2) ""
         set midi(path_midiplayer_3) ""
@@ -1012,6 +1017,9 @@ proc midi_init {} {
     # midishow
     set midi(midishow_sep) track
     set midi(midishow_follow) 1
+
+    #midinotes
+    set midi(midinotesFormat) 1
     
     # grace notes
     set midi(grname1) cut
@@ -1515,6 +1523,10 @@ $w.type add command  -label "TclAbcEditor"\
         -command {startup_tcl_abc_edit 1} -font $df
 $w.type add command -label "TclMultiVoiceEditor"\
         -command {startup_tcl_abc_edit 0} -font $df
+$w.type add command -label "ABCarus editor"\
+        -command {startup_ABCorus_editor} -font $df
+$w.type add command -label "ABCarus editor*"\
+        -command {startup_ABCorus_editor_selection} -font $df
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
 $w.type add command -label "New file"       -command edit_empty_file -font $df
@@ -6472,7 +6484,7 @@ proc show_config_page {subsection} {
         set cfg_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {45 26 28 1 20 4 30 10 23 29 22 12} }
+            1 { set w_list {45 26 28 1 20 4 30 10 23 29 22 44 12} }
             2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
             4 { set w_list {9 18 15 16 17 27} }
             5 { set w_list {31} }
@@ -7990,6 +8002,12 @@ button $w.22.0 -text abcmatch -width 14 -command {setpath path_abcmatch}  -font 
 entry $w.22.1 -width $entryWidth -relief sunken -textvariable midi(path_abcmatch) -font $df
 pack $w.22.0 $w.22.1  -side left -padx 5
 bind .abc.cfg.22.1 <Return> {focus .abc.cfg.22}
+
+frame $w.44
+button $w.44.0 -text ABCarus -width 14 -command {setpath path_ABCarus}  -font $df
+entry $w.44.1 -width $entryWidth -relief sunken -textvariable midi(path_ABCarus) -font $df
+pack $w.44.0 $w.44.1  -side left -padx 5
+bind .abc.cfg.44.1 <Return> {focus .abc.cfg.44}
 
 button $w.2.0 -text yaps -width 14  -command {setpath path_yaps} -font $df
 entry $w.2.1 -width $entryWidth -relief sunken -textvariable midi(path_yaps) -font $df
@@ -27495,11 +27513,19 @@ if {[winfo exist $f] == 0} {
        set midifilein [midi_file_browser]
        output_midinotes [list $midi(midifilein)]
        }
+  menubutton $f.1.format -text format -font $df -relief raised -menu $f.1.format.type
+  set w $f.1.format.type
+  menu $w -tearoff 0
+  $w add radiobutton -label "detail" -font $df -command "midinotesfmt 1"
+  $w add radiobutton -label "pitchbend only" -font $df -command "midinotesfmt 2"
+  $w add radiobutton -label "pitch cents" -font $df -command "midinotesfmt 3"
+  $w add radiobutton -label "pitchbend and cents" -font $df -command "midinotesfmt 4"
+  
   button $f.1.save -text save -font $df\
       -command {output_midinotes_to_file [list $midi(midifilein)]}
   button $f.1.help -text help -font $df\
             -command {show_message_page $hlp_midinotes word}
-  pack $f.1.lab  $f.1.browse $f.1.filent $f.1.save $f.1.help -side left
+  pack $f.1.lab  $f.1.browse $f.1.filent $f.1.format $f.1.save $f.1.help -side left
   pack $f.1
   frame $f.2
   pack $f.1 $f.2 -side top
@@ -27507,6 +27533,12 @@ if {[winfo exist $f] == 0} {
                   output_midinotes [list $midi(midifilein)]} 
   }
 output_midinotes [list $midi(midifilein)]
+}
+
+proc midinotesfmt {type} {
+global midi
+set midi(midinotesFormat) $type
+output_midinotes $midi(midifilein)
 }
 
 proc output_midinotes {midifilein} {
@@ -27521,16 +27553,39 @@ if {[winfo exist .midinotes.2.txt]} {
 text .midinotes.2.txt -yscrollcommand {.midinotes.2.scroll set} -width 80 -font $df
 scrollbar .midinotes.2.scroll -orient vertical -command {.midinotes.2.txt yview}
 pack .midinotes.2.txt .midinotes.2.scroll -side left -fill y
-set midinotescmd "exec [list $midi(path_midi2abc)] $midifilein -midinotes-brief"
-puts "midinotescmd = $midinotescmd"
+if {$midi(midinotesFormat) == 1} {
+  set midinotescmd "exec [list $midi(path_midi2abc)] $midifilein -midinotes"
+  } else {
+  set midinotescmd "exec [list $midi(path_midi2abc)] $midifilein -midinotes-brief"
+  }
+#puts "midinotescmd = $midinotescmd"
 
 catch {eval  $midinotescmd} midinotesresults
 set exec_out $midinotesresults
 if {[string first "no such" $exec_out] >= 0} {abcmidi_no_such_error $midi(path_midi2abc)}
-    #$f delete 1.0 end
+
 set mflines [split $midinotesresults \n]
 foreach line $mflines {
-    .midinotes.2.txt insert end $line\n
+    set linelist [split $line ]
+    #puts $linelist
+    set first [lindex $linelist 0]
+    if {![string is double $first]} {
+       .midinotes.2.txt insert end $line\n
+       continue 
+       }
+    set pitchbend [lindex $linelist end]
+    set note [lindex $linelist end-1]
+    set cents [expr ($pitchbend - 8192)/double(200)]
+    switch $midi(midinotesFormat) {
+      1 {.midinotes.2.txt insert end $line\n
+        }
+      2 {.midinotes.2.txt insert end "$note\t$pitchbend\n"
+       }
+      3 {.midinotes.2.txt insert end "$note\t$cents\n"
+       }
+      4 {.midinotes.2.txt insert end "$note\t$pitchbend\t$cents\n"
+        }
+      }
     }
 }
 
@@ -27547,6 +27602,37 @@ close $outhandle
 show_console_page "saved to $filename" w
 }
 
+# Part 50.0 Links to other abc interfaces
+proc startup_ABCorus_editor {} {
+global midi
+global df
+if {![file exist [list $midi(path_ABCarus)]]} {
+   tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
+   return
+   } 
+set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $midi(abc_open) &"
+catch {eval $cmd} exec_out
+#puts $exec_out
+}
+
+proc startup_ABCorus_editor_selection {} {
+global midi
+global df
+global runabcpath
+if {![file exist [list $midi(path_ABCarus)]]} {
+   tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
+   return
+   } 
+set sel [title_selected]
+tune2Xtmp $sel $midi(abc_open) 
+set infile $runabcpath/X.tmp
+file rename -force  $infile $runabcpath/X.abc
+set infile $runabcpath/X.abc
+
+set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $infile &"
+catch {eval $cmd} exec_out
+#puts $exec_out
+}
 
 # main program starts here
 
