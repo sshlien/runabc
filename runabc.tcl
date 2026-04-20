@@ -33,7 +33,7 @@ exec wish8.6 "$0" "$@"
 
 
 set runabc_version 2.371
-set runabc_date "(April 10 2026 07:12)"
+set runabc_date "(April 20 2026 08:04)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1084,7 +1084,7 @@ proc midi_init {} {
     set midi(pgramthick) 2
 
     #save midi files
-    set midi(namelen) 8
+    set midi(namelen) 16
 }
 
 # save all options, current abc file
@@ -1524,9 +1524,9 @@ $w.type add command  -label "TclAbcEditor"\
 $w.type add command -label "TclMultiVoiceEditor"\
         -command {startup_tcl_abc_edit 0} -font $df
 $w.type add command -label "ABCarus editor"\
-        -command {startup_ABCorus_editor} -font $df
+        -command {startup_ABCarus_editor} -font $df
 $w.type add command -label "ABCarus editor*"\
-        -command {startup_ABCorus_editor_selection} -font $df
+        -command {startup_ABCarus_editor_selection} -font $df
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
 $w.type add command -label "New file"       -command edit_empty_file -font $df
@@ -27603,7 +27603,7 @@ show_console_page "saved to $filename" w
 }
 
 # Part 50.0 Links to other abc interfaces
-proc startup_ABCorus_editor {} {
+proc startup_ABCarus_editor {} {
 global midi
 global df
 if {![file exist [list $midi(path_ABCarus)]]} {
@@ -27615,7 +27615,7 @@ catch {eval $cmd} exec_out
 #puts $exec_out
 }
 
-proc startup_ABCorus_editor_selection {} {
+proc startup_ABCarus_editor_selection {} {
 global midi
 global df
 global runabcpath
@@ -27624,10 +27624,16 @@ if {![file exist [list $midi(path_ABCarus)]]} {
    return
    } 
 set sel [title_selected]
+#set title [extract_title_of_tune $sel $midi(abc_open)]
+#set title [string range $title 0 $midi(namelen)]
+#set title [string map {, _ ? _ : _ ; _ > _ < _ = _} $title]
+#puts $title
 tune2Xtmp $sel $midi(abc_open) 
 set infile $runabcpath/X.tmp
 file rename -force  $infile $runabcpath/X.abc
 set infile $runabcpath/X.abc
+#file rename -force  $infile $runabcpath/$title.abc
+#set infile $runabcpath/$title.abc
 
 set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $infile &"
 catch {eval $cmd} exec_out
