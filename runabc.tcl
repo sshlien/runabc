@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.371
-set runabc_date "(April 20 2026 08:04)"
+set runabc_version 2.372
+set runabc_date "(May 06 2026 11:45)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -610,6 +610,11 @@ will store internal files it needs to read and write. In particular, runabc.ini 
         append msg "abcmatch was not found at: $midi(path_abcmatch) \n"
         set abcmidi 1
     }
+    set result [check_file path_midistats]
+    if {[string first "not found" $result] >= 0} {
+        append msg "midistats was not found at: $midi(path_midistats) \n"
+        set abcmidi 1
+    }
     set result [check_file path_midicopy]
     if {[string first "not found" $result] >= 0} {
         append msg "midicopy was not found at:  $midi(path_midicopy) \n"
@@ -736,6 +741,7 @@ proc midi_init {} {
         set midi(path_abc2abc) abc2abc.exe
         set midi(path_midi2abc) midi2abc.exe
         set midi(path_midicopy) midicopy.exe
+        set midi(path_midistats) midistats.exe
 	#set midi(path_ABCarus) ABCarus-x86_64.AppImage
         set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
 	set midi(path_gs) ""
@@ -756,6 +762,7 @@ proc midi_init {} {
         set midi(path_abc2abc) abc2abc
         set midi(path_midi2abc) midi2abc
         set midi(path_midicopy) midicopy
+        set midi(path_midistats) midistats
         set midi(path_ABCarus) ABCarus-x86_64.AppImage
         set midi(path_midiplayer_1) timidity
         set midi(path_midiplayer_2) ""
@@ -1138,7 +1145,7 @@ proc is_runabc_here {} {
 
 proc find_linux_executables {} {
 global midi
-set execlist "abc2midi abc2abc abcm2ps abcmatch midi2abc midicopy yaps gs"
+set execlist "abc2midi abc2abc abcm2ps abcmatch midi2abc midicopy midistats yaps gs"
 foreach ex  $execlist {
   set cmd "exec which $ex"
   catch {eval $cmd} result
@@ -1208,6 +1215,7 @@ if {![file exists runabc.ini]} {
       set midi(path_abcmatch) [file join $install_folder abcmatch.exe]
       set midi(path_midi2abc) [file join $install_folder midi2abc.exe]
       set midi(path_midicopy) [file join $install_folder midicopy.exe]
+      set midi(path_midistats) [file join $install_folder midistats.exe]
       set midi(path_yaps) [file join $install_folder yaps.exe]
       set midi(path_gs) ""
   } elseif {$tcl_platform(platform) == "unix"} {
@@ -6607,7 +6615,7 @@ proc locate_abcmidi_executables {} {
     set dirname [tk_chooseDirectory -initialdir $midi(dir_abcmidi)]
     if {[string length $dirname] < 1} return
     set midi(dir_abcmidi) $dirname
-    foreach exec {abc2abc yaps midi2abc midicopy abcmatch abcm2ps} {
+    foreach exec {abc2midi abc2abc yaps midi2abc midicopy abcmatch midistats abcm2ps} {
         if {[file exist $dirname/$exec.exe]} {
             set midi(path_$exec) $dirname/$exec.exe
         } elseif {[file exist $dirname/$exec]} {
@@ -11122,6 +11130,7 @@ set abcmidilist {path_abc2midi 4.94\
             path_yaps 1.94\
             path_midi2abc 3.60\
             path_midicopy 1.40\
+            path_midistats 1.04\
             path_abcmatch 1.83\
             path_abcm2ps 8.14.11}
 global abcmidilist
@@ -11901,6 +11910,7 @@ foreach item $filelist {
           .txt -
           .out -
           .ps -
+          .eps -
           .pdf -
 	  .xhtml { file delete $item}
   }
@@ -13930,9 +13940,9 @@ proc compute_pianoroll {} {
         if {$midifiletype == 0} {set midi(midishow_sep) "chan"} 
        	if {[llength $line] != 6} continue
 
-        set begin [lindex $line 0]
+        set begin [expr [lindex $line 0] / double ($ppqn)]
         if {[string is double $begin] != 1} continue
-        set end [lindex $line 1]
+        set end [expr [lindex $line 1] / double ($ppqn)]
         set t [lindex $line 2]
         set c [lindex $line 3]
         set track2channel($t) $c
@@ -24983,8 +24993,8 @@ namespace eval midisummary {
  set midilength 0
  set fileexist [file isfile $midi(midifilein)]
  if {$fileexist} {
-   set exec_options "[list $midi(midifilein) -stats]"
-   set cmd "exec [list $midi(path_midi2abc)] $exec_options"
+   set exec_options "[list $midi(midifilein)]"
+   set cmd "exec [list $midi(path_midistats)] $exec_options"
    catch {eval $cmd} midi_info
    set exec_out $cmd\n$midi_info
    update_console_page
@@ -25807,7 +25817,7 @@ locate the input midi file."
   scan [lindex $pianoresult 0] "Header %d %d %d" miditype ntrks ppqn
 
   set nrec [llength $pianoresult]
-  set midilength [lindex $pianoresult [expr $nrec -1]]
+  set midilength [lindex [lindex $pianoresult [expr $nrec -1]] 0]
   set lastbeat [expr $midilength/$ppqn]
   set sorted_pianoresult [lsort -command compare_onset $pianoresult]
 
