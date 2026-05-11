@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.372
-set runabc_date "(May 06 2026 11:45)"
+set runabc_version 2.373
+set runabc_date "(May 10 2026 21:14)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -20693,9 +20693,12 @@ set cmd "exec [list $midi(path_midi2abc)] $midi(outfilename) -midigram"
 catch {eval $cmd} pianoresult
 set exec_out [append exec_out "\n$cmd\n\n $pianoresult"]
 #update_console_page
+set pianoresult [split $pianoresult \n]
+set ppqn [lindex [lindex $pianoresult 0] 3]
 set nrec [llength $pianoresult]
-set midilength [lindex $pianoresult [expr $nrec -1]]
+set midilength [lindex [lindex $pianoresult [expr $nrec -1] 0]]
 set lastbeat [expr $midilength/$ppqn]
+#puts "make_pianoresult nrec = $nrec midilength = $midilength lastbeat = $lastbeat"
 }
 
 proc abcToChordgram {} {
@@ -20705,11 +20708,12 @@ global ppqn
 global useflats
 set ppqn 480
 set sel [title_selected]
-#set sel [tune2Xtmp $sel $midi(abc_open)]
 copy_selection_to_file $sel $midi(abc_open) X.tmp
 set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
 eval $cmd
-set midi(midifilein) fromAbc.mid
+set midi(outfilename) fromAbc.mid
+set exec_out "abcToNotegram:\n$cmd"
+make_pianoresult
 chordgram_plot none
 }
 
@@ -20720,7 +20724,6 @@ global ppqn
 global useflats
 set ppqn 480
 set sel [title_selected]
-#set sel [tune2Xtmp $sel $midi(abc_open)]
 copy_selection_to_file $sel $midi(abc_open) X.tmp
 set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
 eval $cmd
@@ -24676,9 +24679,11 @@ proc make_midi_summary {} {
 
    set w .msummary.bot
    frame $w
-   label $w.name -text "file name" -font $df
-   label $w.size -text "file size" -font $df
-   pack $w.name $w.size -side top
+   label $w.fileinlab -text  "input midi file" -font $df
+   button $w.fileinbr -text "browse" -font $df -command {\
+      set midi(midifilein) [midi_file_browser]}
+   entry $w.fileinent -width 45 -textvariable midi(midifilein) -font $df
+   pack $w.fileinlab $w.fileinbr $w.fileinent -side left
    pack $w
    }
    midisummary::summarize_midi_file
@@ -24943,8 +24948,8 @@ namespace eval midisummary {
   parse_midi_info $midi_info
   set nbeats [expr $npulses/$ppqn]
   present_midi_info
-  .msummary.bot.name configure -text $midi(midifilein)
-  .msummary.bot.size configure -text "file size $size bytes: \t$nbeats quarter notes \tppqn: $ppqn"
+  .msummary.bot.fileinent configure -text $midi(midifilein)
+  #.msummary.bot.size configure -text "file size $size bytes: \t$nbeats quarter notes \tppqn: $ppqn"
   .msummary.limits.start configure -to $nbeats
   .msummary.limits.end configure -to $nbeats
   set midi(beat1) 0
@@ -25185,6 +25190,7 @@ proc notegram_plot {source} {
    global df
    global lastbeat
    global seqlength
+   puts "notegram_plot lastbeat = $lastbeat"
    if {![winfo exist .notegram]} {
      toplevel .notegram
      position_window .notegram
@@ -26896,6 +26902,7 @@ proc chordgram_plot {source} {
    global df
    global chord_sequence
    global seqlength
+   global lastbeat
    if {![winfo exist .chordgram]} {
      toplevel .chordgram
      position_window .chordgram
@@ -26917,6 +26924,7 @@ proc chordgram_plot {source} {
      bind .chordgram.can <Double-Button-1> chordgram_ClearMark
      }
    set chord_sequence [determineChordSequence $source]
+   #puts "chordgram_plot chord_sequence = $chord_sequence"
    set last_beat [dict size $chord_sequence]
    set seqlength $last_beat
    call_compute_chordgram $source
@@ -27007,6 +27015,7 @@ update_console_page
 
 
 proc call_compute_chordgram {source} {
+global lastbeat
 set limits [getCanvasLimits $source]
 set start [lindex $limits 0]
 set stop  [lindex $limits 1]
@@ -27176,33 +27185,17 @@ proc determineChordSequence {source} {
     #Force loadMidiFile in case notegram alters pianoresult
     set midilength 0
     set cleanData 0
-    if {$source == "pianoroll"} {
-      set limits [midi_limits]
-      set start [lindex $limits 0]
-      set stop  [lindex $limits 1]
-      if {$midilength == 0} loadMidiFile
-      set cleanData 1
-      } else {
-# if not called from .piano window
-      copy_midi_to_tmp $source
-      set cleanData 0
-      set cmd "exec [list $midi(path_midi2abc)] $midi(outfilename) -midigram"
-      catch {eval $cmd} pianoresult
-      set exec_out [append exec_out "determineChordSeq:\n\n$cmd\n\n $pianoresult"]
-      update_console_page
-      set nrec [llength $pianoresult]
-      set midilength [lindex $pianoresult [expr $nrec -1]]
-      set lastbeat [expr $midilength/$ppqn]
-      set pianoresult [split $pianoresult \n]
-      set start 0
-      set stop $midilength
-      }
-
 
     reorganize_pianoresult
-    
+
+    ##new##
+    set lastrec [llength $sorted_midiactions]
+    incr lastrec -1
+    set lastmidiaction [lindex $sorted_midiactions $lastrec] 
+    set stop [lindex $lastmidiaction 0] 
     set tsel [count_selected_midi_tracks]
     
+    set start 0
     
     turn_off_all_notes
     reset_beat_notestatus
@@ -27215,10 +27208,10 @@ proc determineChordSequence {source} {
        dict set list_of_chords $i ""
        }
     set i 0
-    
+    #puts "determineChordSequence sorted_midiactions start = $start stop = $stop"
     foreach midiunit $sorted_midiactions {
         set begin [lindex $midiunit 0]
-        if {[string is double $begin] != 1} continue
+        #if {[string is double $begin] != 1} continue
         if {$begin < $start} continue
         set end [lindex $midiunit 0]
         if {$end   > $stop}  continue
@@ -27226,7 +27219,6 @@ proc determineChordSequence {source} {
         set present_time [lindex $midiunit 0]
         set beat_time [format %5.2f [expr double($present_time)/$ppqn]]
         set beat_number [expr int($beat_time)]
-        #puts "beat_number = $beat_number [lindex $midiunit 1]"
         if {$last_beat_number != $beat_number} {
             set onlist [list_on_notes_in_beat]
             reset_beat_notestatus
@@ -27239,7 +27231,7 @@ proc determineChordSequence {source} {
         
         switch_note_status $midiunit
     }
-    dict set list_of_chord size $last_beat
+    #puts "size of list_of_chords [dict size $list_of_chords]" 
     return $list_of_chords
 }
 
@@ -27326,8 +27318,10 @@ proc compute_chordgram {start stop} {
    set pixelsperbeat [expr ($xrbx - $xlbx) / double($stop - $start)]
    Graph::alter_transformation $xlbx $xrbx $ybbx $ytbx $start $stop 0.0 200.0 
    set chordgram_xfm [Graph::save_transform] 
+   #puts "compute_chordgram seqlength = $seqlength start = $start stop = $stop"
    for {set j 0} {$j <$seqlength} {incr j} {
      if {$j < $start || $j > $stop} continue
+     if {![dict exists $chord_sequence $j]} continue
      set chord [dict get $chord_sequence $j]
      if {$chord == ""} continue
      if {[string index $chord 1] == "#"} {
