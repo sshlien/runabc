@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.373
-set runabc_date "(May 10 2026 21:14)"
+set runabc_version 2.374
+set runabc_date "(May 13 2026 15:24)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -12788,7 +12788,7 @@ proc play_midi_file {name} {
 
     set cmd [concat $cmd &]
     eval $cmd
-    set exec_out $exec_out\n\n$cmd
+    append exec_out \n$cmd\n$exec_out\n
     update_console_page
 }
 
@@ -20712,6 +20712,7 @@ copy_selection_to_file $sel $midi(abc_open) X.tmp
 set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
 eval $cmd
 set midi(outfilename) fromAbc.mid
+set midi(midifilein) fromAbc.mid
 set exec_out "abcToNotegram:\n$cmd"
 make_pianoresult
 chordgram_plot none
@@ -20728,6 +20729,7 @@ copy_selection_to_file $sel $midi(abc_open) X.tmp
 set cmd "exec [list $midi(path_abc2midi)]  X.tmp -o fromAbc.mid"
 eval $cmd
 set midi(outfilename) fromAbc.mid
+set midi(midifilein) fromAbc.mid
 set exec_out "abcToNotegram:\n$cmd"
 make_pianoresult
 notegram_plot none
@@ -27006,9 +27008,9 @@ set stop  [expr [lindex $limits 1]]
 #puts "start = $start stop = $stop"
 set option " -frombeat $start -tobeat $stop"
 set midi(outfilename) tmp.mid
-set cmd "exec [list $midi(path_midicopy)] $option $midi(midifilein) $midi(outfilename)"
+set cmd "exec [list $midi(path_midicopy)] $option [list $midi(midifilein)] [list $midi(outfilename)]"
 catch {eval $cmd} result
-set exec_out "$cmd \n$result"
+set exec_out "PlayExposed\n$cmd \n$result"
 play_midi_file tmp.mid
 update_console_page
 }
