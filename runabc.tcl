@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.374
-set runabc_date "(May 13 2026 15:24)"
+set runabc_version 2.375
+set runabc_date "(May 18 2026 09:20)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -10785,6 +10785,11 @@ proc grouper_window {} {
     label $f.msg.lab -width 60 -text "" -font $df
     pack $f.msg.lab -side left
     pack $f.msg -side top
+    if {$midi(index_by_position) == 0} {
+       $f.msg.lab configure -text "setting index_by_position to 1"
+       set midi(index_by_position) 1
+       title_index $midi(abc_open)
+       }
     update
     set_min_matches $midi(grouper_thresh) 
 }
@@ -10929,8 +10934,6 @@ proc group_tunes {n abcfile} {
         catch {eval $cmd} result
         if {[string first "segmentation" $result] > 0} break
         set exec_out $exec_out\n$cmd\n$result
-        #if {$result != ""} {puts "grouper result for $i\n$result"}
-        #if {[string first "segmentation" $result] > 0} break
         
         # grab the output of abcmatch.exe if any and
         # convert it into a list.
@@ -10946,13 +10949,15 @@ proc group_tunes {n abcfile} {
             incr gbars $mbars
             # display the output in a text window.
             set tpxrefno [lindex $tuneid($i) 0]
+            #puts "tpxrefno = $tpxrefno tuneid($i) = $tuneid($i)"
             set title [lrange $tuneid($i) 1 end]
             button $p.t.play$i  -image kmix-16 -borderwidth $midi(butborder)\
                   -command "play_selected_tune_in_file [list $abcfile] $tpxrefno" 
             $p.t insert end "\nfor "
             $p.t tag configure p$j -foreground darkblue
             $p.t tag bind p$j <1> "see_item [expr $i+1]"
-            $p.t insert end "$tpxrefno " p$j
+            #$p.t insert end "$tpxrefno " p$j
+            $p.t insert end "$tpxrefno " p$i
             incr j
             $p.t window create end -window $p.t.play$i
             $p.t insert end " $title ($mbars bars)   "
@@ -10967,9 +10972,6 @@ proc group_tunes {n abcfile} {
                 set tcount [lindex $item 2]
                 set tpxrefno [lindex $tuneid($xref) 0]
                 set title [lrange $tuneid($xref) 1 end]
-            #    button $p.t.$j -text $tpxrefno -font $df -borderwidth $midi(butborder)\
-            #      -bg white -fg darkblue -pady 0 -padx 0\
-            #      -command "see_item $tpxrefno"
                 $p.t tag configure p$j -foreground darkblue
                 $p.t tag bind p$j <1> "see_item [expr $xref+1]"
                 $p.t insert end $tpxrefno p$j
@@ -11044,6 +11046,7 @@ proc run_grouper {} {
     global midi
     global exec_out
     set ntunes [grouper_title_index $midi(abc_open)]
+    #list_titles	$ntunes 
     set exec_out ""
     group_tunes $ntunes $midi(abc_open)
 }
