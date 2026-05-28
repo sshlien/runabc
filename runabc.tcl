@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.375
-set runabc_date "(May 18 2026 09:20)"
+set runabc_version 2.377
+set runabc_date "(May 28 2026 13:34)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -754,7 +754,7 @@ proc midi_init {} {
         set midi(midiplayer_2_options) ""
         set midi(midiplayer_3_options) ""
         set midi(midiplayer_4_options) ""
-        set midi(path_internet) "c:/Program Files/Internet Explorer/iexplore.exe"} else {
+        set midi(path_internet) "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"} else {
         set midi(path_yaps) yaps
         set midi(path_abcm2ps) abcm2ps
         set midi(path_abcmatch) abcmatch
@@ -2332,7 +2332,7 @@ in your $runabcpath folder"
         }
     } elseif {$midi(ps_creator) == "abc2svg"} {
 	    copytohtml $abcfile
-            set cmd "exec [list $midi(path_internet)] file:[list $midi(outhtml)] &"
+            set cmd "exec [list $midi(path_internet)] file://[list [pwd]/$midi(outhtml)] &"
 	    catch {eval $cmd} exec_out
 	    set exec_out "$cmd\n$exec_out"
             #puts "for abc2svg: cmd = $cmd exec_out = $exec_out "
@@ -9997,7 +9997,7 @@ proc match_window {headtype} {
     global hlp_match_bars hlp_match_tune
     set f .matcher.top
     if {![winfo exist .matcher]} {
-           if {[check_abcmatch_version 1.67] == 0} return
+           if {[check_abcmatch_version 1.83] == 0} return
            setup_match_window}
     foreach w [winfo children $f] {pack forget $w}
     foreach w [winfo children $f.con] {pack forget $w}
@@ -10831,6 +10831,7 @@ proc grouper_title_index {abcfile} {
         switch -- $srch {
             X {if {[string compare -length 2 $line "X:"] == 0} {
                     regexp $pat $line  number
+                    incr number -1
                     set srch T
                     set i1 $i
                     incr i
@@ -10844,9 +10845,11 @@ proc grouper_title_index {abcfile} {
                       set name [string range $line 2 end]
                       set name [string trim $name]
 # remove parentheses which can cause a problem
-                      set name [string map {( {} ) {}} $name]
+                      set name [string map {( {} ) {} \' {} \" {}} $name]
 
                       set tuneid($i1) [format "%s %s" $number $name]
+                      #puts "tuneid($i1) = $tuneid($i1)"
+
                       }
                     set srch X
                 }
@@ -10956,8 +10959,7 @@ proc group_tunes {n abcfile} {
             $p.t insert end "\nfor "
             $p.t tag configure p$j -foreground darkblue
             $p.t tag bind p$j <1> "see_item [expr $i+1]"
-            #$p.t insert end "$tpxrefno " p$j
-            $p.t insert end "$tpxrefno " p$i
+            $p.t insert end "$tpxrefno " p$j
             incr j
             $p.t window create end -window $p.t.play$i
             $p.t insert end " $title ($mbars bars)   "
@@ -10971,6 +10973,7 @@ proc group_tunes {n abcfile} {
                 set count [lindex $item 1]
                 set tcount [lindex $item 2]
                 set tpxrefno [lindex $tuneid($xref) 0]
+                #puts "item = $item xref = $xref tpxrefno = $tpxrefno"
                 set title [lrange $tuneid($xref) 1 end]
                 $p.t tag configure p$j -foreground darkblue
                 $p.t tag bind p$j <1> "see_item [expr $xref+1]"
