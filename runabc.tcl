@@ -33,7 +33,7 @@ exec wish8.6 "$0" "$@"
 
 
 set runabc_version 2.377
-set runabc_date "(May 28 2026 13:34)"
+set runabc_date "(May 31 2026 12:19)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -10928,7 +10928,7 @@ proc group_tunes {n abcfile} {
     pop_grouper_results
     set grouper_handle [open $abcfile r]
     set j 0
-    for {set i 0} {$i <$n} {incr i} {
+    for {set i 0} {$i < $n} {incr i} {
         if {$stopgrouper} break
         create_matcher_template_for $grouper_handle $i
         .grouper.msg.lab configure -text "$i/$n $tuneid($i)"
@@ -10948,10 +10948,13 @@ proc group_tunes {n abcfile} {
                 }
             incr gfiles
             set grouplist [split $result \n]
+            #puts "grouplist = $grouplist"
             set mbars [lindex $result 0]
             incr gbars $mbars
             # display the output in a text window.
             set tpxrefno [lindex $tuneid($i) 0]
+            # refno starts from 1
+            incr tpxrefno 
             #puts "tpxrefno = $tpxrefno tuneid($i) = $tuneid($i)"
             set title [lrange $tuneid($i) 1 end]
             button $p.t.play$i  -image kmix-16 -borderwidth $midi(butborder)\
@@ -10973,6 +10976,7 @@ proc group_tunes {n abcfile} {
                 set count [lindex $item 1]
                 set tcount [lindex $item 2]
                 set tpxrefno [lindex $tuneid($xref) 0]
+                incr tpxrefno
                 #puts "item = $item xref = $xref tpxrefno = $tpxrefno"
                 set title [lrange $tuneid($xref) 1 end]
                 $p.t tag configure p$j -foreground darkblue
@@ -10995,9 +10999,13 @@ proc group_tunes {n abcfile} {
     }
     stop_grouper
     close $grouper_handle
-    set s "$gfiles tunes matched out of $i\n"
-    append s "the $gfiles tunes had a total of $gbars bars\n"
-    append s "average number of tunes linked to matched tune = [format %5.2f [expr $glinks/double($gfiles)]]\n"
+    if {$gfiles > 0} {
+      set s "$gfiles tunes matched out of $i\n"
+      append s "the $gfiles tunes had a total of $gbars bars\n"
+      append s "average number of tunes linked to matched tune = [format %5.2f [expr $glinks/double($gfiles)]]\n"
+      } else {
+      append s "no matching tunes found\n"
+      }
     append s "elapsed time = [expr [clock seconds] - $starttime]\n\n"
     $p.t insert 0.0 $s
 }
@@ -21150,22 +21158,22 @@ proc play_selected_tune_in_file {filename refno} {
   global exec_out
   global hlp_histmatches
   if {![file exist $filename]} {show_message_page $hlp_histmatches word}
-  if {[file exist $filename]} {
-    set modereftime [file mtime $midi(moderef)]
-    set filereftime [file mtime $filename]
-    if {$modereftime < $filereftime} {
-       show_message_page "The file $filename was updated recently. You\
-	need to recreate $midi(moderef). Click the help button in the\
-	histmatches window to find out how to do this." word}
-    }
+  #if {[file exist $filename]} {
+   #set modereftime [file mtime $midi(moderef)]
+    #set filereftime [file mtime $filename]
+    #if {$modereftime < $filereftime} {
+    #   show_message_page "The file $filename was updated recently. You\
+    #	need to recreate $midi(moderef). Click the help button in the\
+    #	histmatches window to find out how to do this." word}
+    #}
 # in case  $midi(midiplayer_2_prot) is set to 1
   set files X1.mid
-  set cmd "exec $midi(path_abc2midi) $filename $refno -Q $midi(tempo) -o X1.mid"
+  set cmd "exec $midi(path_abc2midi) $filename $refno -Q $midi(tempo) -o X$refno.mid"
   if {$midi(tuning) != 440} {append cmd " -TT $midi(tuning)"}
   if {$midi(nofermata) == 1} {append cmd " -NFER"}
   catch {eval $cmd} result
   set exec_out $cmd\n$result
-  play_midis 1
+  play_midis $refno
   } 
 
 proc show_selected_tune_in_file {filename xref} {
