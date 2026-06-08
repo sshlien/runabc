@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.377
-set runabc_date "(May 31 2026 12:19)"
+set runabc_version 2.378
+set runabc_date "(June 07 2026 8:13)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1535,6 +1535,9 @@ $w.type add command -label "ABCarus editor"\
         -command {startup_ABCarus_editor} -font $df
 $w.type add command -label "ABCarus editor*"\
         -command {startup_ABCarus_editor_selection} -font $df
+$w.type add command -label "AbcTranscriptionTools"\
+        -command {startup_abctranscription_tools} -font $df
+        
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
 $w.type add command -label "New file"       -command edit_empty_file -font $df
@@ -27658,6 +27661,12 @@ set infile $runabcpath/X.abc
 set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $infile &"
 catch {eval $cmd} exec_out
 #puts $exec_out
+}
+
+proc startup_abctranscription_tools {} {
+global midi
+set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html  &"
+eval $cmd
 }
 
 # main program starts here
