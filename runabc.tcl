@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.378
-set runabc_date "(June 07 2026 8:13)"
+set runabc_version 2.379
+set runabc_date "(June 11 2026 13:40)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1537,6 +1537,8 @@ $w.type add command -label "ABCarus editor*"\
         -command {startup_ABCarus_editor_selection} -font $df
 $w.type add command -label "AbcTranscriptionTools"\
         -command {startup_abctranscription_tools} -font $df
+$w.type add command -label "AbcTranscriptionTools*"\
+        -command {startup_abctranscription_tools_with_midi} -font $df
         
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
@@ -3421,6 +3423,17 @@ proc copy_selection_to_file {tunes abcfile outfile} {
     return $outlist
 }
 
+proc copy_abc_file_to_string {abcfile} {
+set inhandle [open $abcfile]
+set line [get_nonblank_line $inhandle]
+set outstring $line
+while {[string length $line] > 0} {
+  gets $inhandle line 
+  append outstring $line\n
+  }
+close $inhandle
+return $outstring
+}
 
 
 
@@ -27663,9 +27676,308 @@ catch {eval $cmd} exec_out
 #puts $exec_out
 }
 
+#Part 51.0 Interface to Michael Eskin's abctools
+
+# provided by Michael Eskin and
+# created by ChatGPT from Michael's Javascript code.
+
+# generate_share_link.tcl
+#
+# Tcl 8.6+ implementation of the ABC Transcription Tools share-link generator.
+# It replaces:
+#   - pako.deflate() with Tcl's built-in zlib compress command
+#   - browser Base64 with Tcl's built-in binary encode base64 command
+#   - lz-string's compressToEncodedURIComponent() with a compatible pure-Tcl encoder
+#
+# Typical use:
+#   source generate_share_link.tcl
+#   set url [::ABCShareLink::generate \
+#       -abcText $abc \
+#       -shareName "My Tune Book" \
+#       -tablatureOption noten \
+#       -addAutoPlay 1 \
+#       -compressionMode deflate]
+#
+# generate returns an empty string when the URL exceeds SHARE_LINK_MAX_LEN.
+
+namespace eval ::ABCShareLink {
+    variable ABC_TOOLS_BASE_URL "https://michaeleskin.com/abctools/abctools.html"
+    variable SHARE_LINK_MAX_LEN 8100
+    variable LZ_URI_ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$"
+
+    namespace export generate compressDeflate compressLZW formUrlEncode
+}
+
+# Convert arbitrary Tcl text to UTF-8 bytes, compress it as a zlib stream at
+# level 6 (the same format used by pako.deflate), then Base64URL encode it.
+proc ::ABCShareLink::compressDeflate {abcText} {
+    set utf8Bytes [encoding convertto utf-8 $abcText]
+    set compressed [zlib compress $utf8Bytes 6]
+    set base64 [binary encode base64 -maxlen 0 $compressed]
+    return [string trimright [string map {+ - / _} $base64] =]
+}
+
+# Internal bit writer used by the LZ-String-compatible compressor.
+proc ::ABCShareLink::_writeBits {value bitCount bitsPerChar alphabet outputVar dataValueVar dataPositionVar} {
+    upvar 1 $outputVar output $dataValueVar dataValue $dataPositionVar dataPosition
+
+    for {set i 0} {$i < $bitCount} {incr i} {
+        set dataValue [expr {($dataValue << 1) | ($value & 1)}]
+
+        if {$dataPosition == ($bitsPerChar - 1)} {
+            set dataPosition 0
+            append output [string index $alphabet $dataValue]
+            set dataValue 0
+        } else {
+            incr dataPosition
+        }
+
+        set value [expr {$value >> 1}]
+    }
+}
+
+proc ::ABCShareLink::_increaseBitWidthIfNeeded {enlargeInVar numBitsVar} {
+    upvar 1 $enlargeInVar enlargeIn $numBitsVar numBits
+
+    incr enlargeIn -1
+    if {$enlargeIn == 0} {
+        set enlargeIn [expr {1 << $numBits}]
+        incr numBits
+    }
+}
+
+# Emit one dictionary token using the same rules as LZString._compress().
+proc ::ABCShareLink::_emitLZToken {w dictionaryVar dictionaryToCreateVar enlargeInVar numBitsVar bitsPerChar alphabet outputVar dataValueVar dataPositionVar} {
+    upvar 1 \
+        $dictionaryVar dictionary \
+        $dictionaryToCreateVar dictionaryToCreate \
+        $enlargeInVar enlargeIn \
+        $numBitsVar numBits \
+        $outputVar output \
+        $dataValueVar dataValue \
+        $dataPositionVar dataPosition
+
+    if {[info exists dictionaryToCreate($w)]} {
+        scan [string index $w 0] %c charCode
+
+        if {$charCode < 256} {
+            # Literal 8-bit character marker: numBits zero bits.
+            _writeBits 0 $numBits $bitsPerChar $alphabet output dataValue dataPosition
+            _writeBits $charCode 8 $bitsPerChar $alphabet output dataValue dataPosition
+        } else {
+            # Literal 16-bit character marker: value 1 in numBits bits.
+            _writeBits 1 $numBits $bitsPerChar $alphabet output dataValue dataPosition
+            _writeBits $charCode 16 $bitsPerChar $alphabet output dataValue dataPosition
+        }
+
+        _increaseBitWidthIfNeeded enlargeIn numBits
+        unset dictionaryToCreate($w)
+    } else {
+        _writeBits $dictionary($w) $numBits $bitsPerChar $alphabet output dataValue dataPosition
+    }
+
+    _increaseBitWidthIfNeeded enlargeIn numBits
+}
+
+# Pure-Tcl equivalent of LZString.compressToEncodedURIComponent().
+# The output is compatible with the legacy lzw= parameter consumed by ABC Tools.
+proc ::ABCShareLink::compressLZW {text} {
+    variable LZ_URI_ALPHABET
+
+    set bitsPerChar 6
+    set dictionarySize 3
+    set numBits 2
+    set enlargeIn 2
+    set w ""
+
+    array set dictionary {}
+    array set dictionaryToCreate {}
+
+    set output ""
+    set dataValue 0
+    set dataPosition 0
+
+    foreach c [split $text ""] {
+        if {![info exists dictionary($c)]} {
+            set dictionary($c) $dictionarySize
+            incr dictionarySize
+            set dictionaryToCreate($c) 1
+        }
+
+        set wc "${w}${c}"
+        if {[info exists dictionary($wc)]} {
+            set w $wc
+        } else {
+            _emitLZToken $w dictionary dictionaryToCreate enlargeIn numBits \
+                $bitsPerChar $LZ_URI_ALPHABET output dataValue dataPosition
+
+            set dictionary($wc) $dictionarySize
+            incr dictionarySize
+            set w $c
+        }
+    }
+
+    if {$w ne ""} {
+        _emitLZToken $w dictionary dictionaryToCreate enlargeIn numBits \
+            $bitsPerChar $LZ_URI_ALPHABET output dataValue dataPosition
+    }
+
+    # End-of-stream marker (dictionary code 2).
+    _writeBits 2 $numBits $bitsPerChar $LZ_URI_ALPHABET output dataValue dataPosition
+
+    # Flush the final partial output character with zero padding.
+    while {1} {
+        set dataValue [expr {$dataValue << 1}]
+        if {$dataPosition == ($bitsPerChar - 1)} {
+            append output [string index $LZ_URI_ALPHABET $dataValue]
+            break
+        }
+        incr dataPosition
+    }
+
+    return $output
+}
+
+# application/x-www-form-urlencoded encoding matching URLSearchParams closely:
+# ASCII letters/digits plus '*', '-', '.', '_' remain unescaped; spaces become
+# '+', and all other UTF-8 bytes become uppercase %HH escapes.
+proc ::ABCShareLink::formUrlEncode {text} {
+    set bytes [encoding convertto utf-8 $text]
+    binary scan $bytes c* values
+    set encoded ""
+
+    foreach signedByte $values {
+        set byte [expr {$signedByte & 0xFF}]
+
+        if {($byte >= 0x41 && $byte <= 0x5A) ||
+            ($byte >= 0x61 && $byte <= 0x7A) ||
+            ($byte >= 0x30 && $byte <= 0x39) ||
+            $byte == 0x2A || $byte == 0x2D || $byte == 0x2E || $byte == 0x5F} {
+            append encoded [format %c $byte]
+        } elseif {$byte == 0x20} {
+            append encoded +
+        } else {
+            append encoded %[format %02X $byte]
+        }
+    }
+
+    return $encoded
+}
+
+# Generate a share URL. Options mirror the original JavaScript object fields.
+#
+# Options:
+#   -abcText TEXT
+#   -shareName TEXT              default: Share_Link
+#   -tablatureOption VALUE       default: noten
+#   -addAutoPlay BOOLEAN         default: 0
+#   -addOpenInEditor BOOLEAN     default: 0
+#   -compressionMode MODE        default: deflate (deflate or lzw)
+#   -maxLength INTEGER           default: 8100
+#
+# If both player and editor are requested, editor wins, as in the JavaScript.
+# Returns an empty string if the resulting URL is too long.
+proc ::ABCShareLink::generate {args} {
+    variable ABC_TOOLS_BASE_URL
+    variable SHARE_LINK_MAX_LEN
+
+    array set opts [list \
+        -abcText "" \
+        -shareName "Share_Link" \
+        -tablatureOption "noten" \
+        -addAutoPlay 0 \
+        -addOpenInEditor 0 \
+        -compressionMode "deflate" \
+        -maxLength $SHARE_LINK_MAX_LEN]
+
+    if {[llength $args] % 2 != 0} {
+        error "generate expects option/value pairs"
+    }
+
+    foreach {name value} $args {
+        if {![info exists opts($name)]} {
+            error "unknown option '$name'"
+        }
+        set opts($name) $value
+    }
+
+    set mode [string tolower $opts(-compressionMode)]
+    switch -- $mode {
+        deflate {
+            set payloadName def
+            set payloadValue [compressDeflate $opts(-abcText)]
+        }
+        lzw {
+            set payloadName lzw
+            set payloadValue [compressLZW $opts(-abcText)]
+        }
+        default {
+            error "-compressionMode must be 'deflate' or 'lzw'"
+        }
+    }
+
+    set addAutoPlay [expr {!!$opts(-addAutoPlay)}]
+    set addOpenInEditor [expr {!!$opts(-addOpenInEditor)}]
+    if {$addAutoPlay && $addOpenInEditor} {
+        set addAutoPlay 0
+    }
+
+    # Preserve the same parameter order as URLSearchParams in the JavaScript.
+    set pairs [list \
+        $payloadName $payloadValue \
+        format $opts(-tablatureOption) \
+        ssp 10 \
+        name $opts(-shareName)]
+
+    if {$addAutoPlay} {
+        lappend pairs play 1
+    }
+    if {$addOpenInEditor} {
+        lappend pairs editor 1
+    }
+
+    set queryParts {}
+    foreach {name value} $pairs {
+        lappend queryParts "[formUrlEncode $name]=[formUrlEncode $value]"
+    }
+
+    set url "${ABC_TOOLS_BASE_URL}?[join $queryParts &]"
+    if {[string length $url] > $opts(-maxLength)} {
+        return ""
+    }
+
+    return $url
+}
+
+package provide ABCShareLink 1.0
+
+
 proc startup_abctranscription_tools {} {
 global midi
-set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html  &"
+set sel [title_selected]
+set abcdata [copy_selection_to_string $sel $midi(abc_open)]
+#puts "abcdata = $abcdata"
+set deflated [::ABCShareLink::compressDeflate $abcdata]
+#puts "deflated $deflated"
+
+set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html?def=$deflated&editor=1&play=1  &"
+eval $cmd
+}
+
+proc startup_abctranscription_tools_with_midi {} {
+global midi
+global runabcpath
+set sel [title_selected]
+tune2Xtmp $sel $midi(abc_open) 
+set infile $runabcpath/X.tmp
+file rename -force  $infile $runabcpath/X.abc
+set infile $runabcpath/X.abc
+set abcdata [copy_abc_file_to_string $infile]
+#puts "abcdata = $abcdata"
+set deflated [::ABCShareLink::compressDeflate $abcdata]
+#puts "deflated $deflated"
+
+set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html?def=$deflated&editor=1&play=1  &"
 eval $cmd
 }
 
