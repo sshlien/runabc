@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.379
-set runabc_date "(June 11 2026 13:40)"
+set runabc_version 2.381
+set runabc_date "(June 21 2026 19:11)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -742,7 +742,6 @@ proc midi_init {} {
         set midi(path_midi2abc) midi2abc.exe
         set midi(path_midicopy) midicopy.exe
         set midi(path_midistats) midistats.exe
-	#set midi(path_ABCarus) ABCarus-x86_64.AppImage
         set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
 	set midi(path_gs) ""
            
@@ -6508,7 +6507,7 @@ proc show_config_page {subsection} {
         set cfg_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {45 26 28 1 20 4 30 10 23 29 22 44 12} }
+            1 { set w_list {45 26 28 1 20 4 30 10 23 29 22 44 11 12} }
             2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
             4 { set w_list {9 18 15 16 17 27} }
             5 { set w_list {31} }
@@ -6747,6 +6746,7 @@ frame $w.1
 frame $w.2
 frame $w.3
 frame $w.4
+frame $w.5
 label $w.1.1 -text "Reformat" -font $df
 pack $w.1.1 -side left
 pack $w.1
@@ -6770,15 +6770,29 @@ entry $w.3.startent -textvariable midi(startbar) -font $df -width 4
 pack $w.3.inv $w.3.bars $w.3.startlab $w.3.startent -side left -anchor w
 pack $w.3
 button $w.4.1 -text "reformat" -font $df\
-        -command {startup_tcl_abc_edit 0
+        -command {
+            set barpickerflag 0
+            set w .abc.reformat
             set tunestring [return_selected_tune]
-            Refactor::process_tune $tunestring
-            Refactor::reconstitute
+            Refactor::generate_tunepieces $tunestring
+            set abcstring [Refactor::reconstituteText]
+            pack $w.5
         }
 pack $w.4.1 -side left
 pack $w.4
-label $w.mesg -text ""
+button $w.5.1 -text edit -font $df\
+        -command {startup_tcl_abc_edit 0
+                  set tunestring [return_selected_tune]
+                  Refactor::generate_tunepieces $tunestring
+                  Refactor::reconstitute}
+button $w.5.2 -text save -font $df
+button $w.5.3 -text "to abctranscriptiontools" \
+        -command {run_abctranscription_tools $abcstring} -font $df
+pack $w.5.1 $w.5.2 $w.5.3 -side left
+
+label $w.mesg -text "" -font $df
 pack $w.mesg
+
 
 
 #	extract property sheet
@@ -8047,6 +8061,17 @@ button $w.30.0 -text ghostscript -width 14  -command {setpath path_gs} -font $df
 entry $w.30.1 -width $entryWidth -relief sunken -textvariable midi(path_gs) -font $df
 pack $w.30.0 $w.30.1  -side left -padx 5
 bind .abc.cfg.30.1 <Return> {focus .abc.cfg.4}
+
+button $w.11.0 -text musescore -font $df -width 14
+entry $w.11.1 -width $entryWidth -relief sunken -font $df
+pack $w.11.0 $w.11.1 -side left -padx 5
+
+button $w.12.0 -text abc2xml -font $df -width 14
+entry $w.12.1 -width $entryWidth -relief sunken -font $df
+pack $w.12.0 $w.12.1 -side left -padx 5
+
+
+
 
 button $w.5.0 -text "Midi player 1" -width 14  -command {setpath path_midiplayer_1} -font $df
 entry $w.5.1 -width 42 -relief sunken -textvariable midi(path_midiplayer_1) -font $df
@@ -10333,6 +10358,7 @@ proc highlight_matched_notes {bar n} {
    for {set i 0} {$i < $n} {incr i} {
      set gloc [.matcher.notice.t search -regexp $gchordpat "$loc+1 char"]
      set loc [.matcher.notice.t search -regexp $notepat "$loc+1 char"]
+     if {$gloc == ""} continue
      if {[.matcher.notice.t compare $gloc < $loc]} {
 # skip if the note was mistaken as a gchord
          set loc [.matcher.notice.t search -regexp $notepat "$loc+1 char"]
@@ -10565,13 +10591,13 @@ proc dump_for_abcm2ps_display {} {
               puts $outhandle \\
               #puts $outhandle "y0 \\"
               #puts $outhandle "%%postscript 1 0 0 setrgbcolor"
-               puts $outhandle "%%voicecolor #c0000000"
+               puts $outhandle "%%voicecolor red"
               set red 1
               } elseif {$key == "tagoff" && $value == "bl"} {
               puts $outhandle \\
               #puts $outhandle "y0\\"
               #puts  $outhandle "%%postscript 0 0 0 setrgbcolor"
-               puts $outhandle "%%voicecolor #000000"
+               puts $outhandle "%%voicecolor black"
               set red 0
              }
         }
@@ -19831,7 +19857,7 @@ namespace eval Refactor {
     
     proc process_line {line} {
         # This function breaks a body line into bars and save
-        # each bar into the array tune_pieces using the functions
+        # each bar into the array tunepieces using the functions
         # make_component_name and appendtext.
         # Complications occur when (1) a line begins with a bar line
         # (2) a bar is incomplete at the end of a line (3) comments
@@ -19997,49 +20023,54 @@ namespace eval Refactor {
     }
     
     
-    
-    proc appendtext {piece} {
-        global abctxtw
-        global component
-        global tunepieces
-        global barpickerflag
-        #set piece [string trimright $piece \\ ]
-        append tunepieces($component) $piece
-        if {$barpickerflag} {
-            $abctxtw insert end $piece $component
-            $abctxtw tag bind $component <ButtonPress-1> [list Barpicker::barclick $component]
-        }
-    }
-    
-    proc appendx {piece} {
-        global abctxtw
-        global xcomponent
-        global tunepieces
-        global barpickerflag
-        if {$barpickerflag} {
-            $abctxtw insert end $piece $xcomponent
-            $abctxtw tag bind $xcomponent <ButtonPress-1> [list Barpicker::barclick $xcomponent]
-        }
-        append tunepieces($xcomponent) $piece
-    }
-    
-    
-    proc make_component_name {} {
-        global partname
-        global voicelab
-        global barnum
-        global component
-        global xcomponent
-        set component $voicelab-$barnum
-        set xcomponent x-$voicelab-$barnum
-    }
-    
-    global hasfield
-    
-    
-    # This is the function which processes the tune.
-    # Assume only one tune per file.
-    proc process_tune {tunestring} {
+	    #appendtext and appendx are called by process_line in
+            # generate_tunepieces.
+	    #The functions build up the array tunepieces. If barpickerflag is
+	    #nonzero, then the fields in the MultiVoicedEditor are also filled
+	    #in. 
+	    proc appendtext {piece} {
+		global abctxtw
+		global component
+		global tunepieces
+		global barpickerflag
+		#set piece [string trimright $piece \\ ]
+		append tunepieces($component) $piece
+		if {$barpickerflag} {
+		    $abctxtw insert end $piece $component
+		    $abctxtw tag bind $component <ButtonPress-1> [list Barpicker::barclick $component]
+		}
+	    }
+	    
+	    proc appendx {piece} {
+		global abctxtw
+		global xcomponent
+		global tunepieces
+		global barpickerflag
+		if {$barpickerflag} {
+		    $abctxtw insert end $piece $xcomponent
+		    $abctxtw tag bind $xcomponent <ButtonPress-1> [list Barpicker::barclick $xcomponent]
+		}
+		append tunepieces($xcomponent) $piece
+	    }
+	    
+	    
+	    proc make_component_name {} {
+		global partname
+		global voicelab
+		global barnum
+		global component
+		global xcomponent
+		set component $voicelab-$barnum
+		set xcomponent x-$voicelab-$barnum
+	    }
+	    
+	    global hasfield
+	    
+	    
+	    # This is the function which splits the tune
+            # into bars and puts it in an array tunepieces.
+	    # Assume only one tune per file.
+        proc generate_tunepieces {tunestring} {
         global partname
         global voicelab
         global voicelist
@@ -20288,12 +20319,27 @@ namespace eval Refactor {
     }
     
     
-    
+    # The functions reconstitute and reconstituteText are very similar;
+    # In fact reconstituteText was derived from reconstitute. Both
+    # rely on similar functions reconstitute_pieces_voice_interleaved
+    # and reconstituteText_pieces_voice_interleaved if we desire to
+    # to produce a voice interleaved file, and reconstitute_pieces_
+    # separate_voices and reconstituteText_pieces_separate_voices if
+    # we desire to produce a file with the voices occurring separately.
+    # The purposes of these functions are to recover the abc file
+    # from the information in the array tunepieces which breaks up
+    # the file into separate bars addressed by bar number of 
+    # voice and bar numbers.
+    # The main difference between the functions is that the
+    # ones without "Text" are designed to support the MultiVoicedEditor,
+    # while the latter are designed to produce a string suitable for
+    # the abctranscription_tools.
     proc reconstitute {} {
         global midi
         global abctxtw
         global barsperline barsperstaff
 	global do_reconstitute
+        puts "running reconstitute"
 	set do_reconstitute 1
         set barsperline $midi(midibpl)
         set barsperstaff $midi(midibps)
@@ -20310,6 +20356,27 @@ namespace eval Refactor {
         }
         tag_text $abctxtw
 	$abctxtw edit reset
+    }
+
+    proc reconstituteText {} {
+        global midi
+        global abctxtw
+        global barsperline barsperstaff
+	global do_reconstitute
+	set do_reconstitute 1
+        set barsperline $midi(midibpl)
+        set barsperstaff $midi(midibps)
+        if {$barsperline > $barsperstaff} {
+            puts "barsperline > barsperstaff. adjusting."
+            set barsperline $barsperstaff
+            set midi(midibpl) $barsperline
+            }
+        if {$midi(interleave)} {
+            set abcstring [reconstituteText_pieces_voice_interleaved]
+        } else {
+            set abcstring [reconstituteText_pieces_separate_voices]
+        }
+        return $abcstring
     }
     
     proc strip_out_V_command {s} {
@@ -20412,6 +20479,87 @@ namespace eval Refactor {
         }
     }
     
+    proc reconstituteText_pieces_voice_interleaved {} {
+        global abctxtw
+        global tunepieces
+        global nvoices nbars nbarsv voicelist
+        global barsperline barsperstaff
+	global midi
+        set fieldpat {^L:|^M:|^K:|^Q:|^w:|V:}
+        
+        puts "in reconstituteText_pieces_voice_interleaved"
+
+        if {$barsperline < 1} {set barsperline 1}
+        
+        #check_nbarsv
+        #puts -nonewline $tunepieces(head) 
+        set abcstring $tunepieces(head)
+        if {$nvoices < 1} {puts "no voices are present"
+            reconstituteText_pieces_separate_voices
+            return
+        }
+        if {[info exist tunepieces(0-0)]} {
+            #puts -nonewline $tunepieces(0-0)
+            append abcstring $tunepieces(0-0)}
+        set i 0
+        while {$i < $nbars} {
+            for {set n 0} {$n < $nvoices} {incr n} {
+                set voice [lindex $voicelist $n]
+                if {$i >= $nbarsv($voice)} continue
+
+                if {$midi(inline_voice)} {
+			#puts -nonewline "\[V:$voice\] "
+                        append abcstring "\[V:$voice\] "} else {
+                        #puts -nonewline "V:$voice \n"
+                        append abcstring "V:$voice \n"
+                        }
+                set lastchar  "\n"
+                set barsinline 0
+                for {set j 0} {$j < $barsperstaff} {incr j} {
+                    set k [expr $i + $j]
+                    if {$k >= $nbarsv($voice)} break
+
+                    # put any comments or field commands on a new line
+                    if {[info exist tunepieces(x-$voice-$k)]} {
+                        set t $tunepieces(x-$voice-$k)    
+                        set t [strip_out_V_command $t]
+                        if {[string length $t] > 0} { 
+                           if {$lastchar != "\n"} {
+                               if {$k % $barsperstaff != 0} {
+                                  #puts -nonewline "\\\n"
+                                  append abcstring \\\n
+                                  } else {
+                                  #if {$n == 0} {puts -nonewline " % [expr $i +$j + $midi(startbar) -1]"}
+                                  #puts -nonewline "\n"}
+                                 #set lastchar "\n"}
+                           #puts -nonewline $t 
+                           append abcstring $t
+                        }
+                    }
+		#puts -nonewline $tunepieces($voice-$k) 
+                append abcstring $tunepieces($voice-$k)
+                incr barsinline
+                if {[expr $j + 1] >= $barsperstaff} continue
+                if {$barsinline >= $barsperline} {
+                     #puts -nonewline "\\\n"
+                     append abcstring \\\n
+                     set barsinline 0
+                     }
+                }
+                if {$n == 0} {
+                   #if {$midi(reformat_bars)} {
+		   #   puts " % [expr $i +$j + $midi(startbar) -1]"}
+                   #puts -nonewline "\n"
+                   append abcstring \n
+                   set barsinline 0 
+                   }
+            }
+            
+            incr i $barsperstaff
+        }
+    ##puts "\n\nabcstring = \n$abcstring"
+    return $abcstring
+    }
     
     proc reconstitute_pieces_separate_voices {} {
         global abctxtw
@@ -20545,6 +20693,156 @@ namespace eval Refactor {
         }
     }
     
+    proc reconstituteText_pieces_separate_voices {} {
+        global abctxtw
+        global tunepieces
+        global nvoices nbars voicelist
+        global barsperline barsperstaff
+	global midi
+        set fieldpat {^L:|^M:|^K:|^Q:|^w:}
+        puts "in reconstituteText_pieces_separate_voices"
+        #puts -nonewline $tunepieces(head)
+        set abcstring $tunepieces(head)
+        #        $abctxtw tag bind head <ButtonPress-1> [list barclick head]
+        # we ignore all V: commands in the tunepieces() except for
+        # the first one belonging to the voice.
+        set barsinline 0
+        set barsinstaff 0
+        set newline 1
+        #puts "tunepieces = [array get tunepieces]"
+        if {$nvoices >= 1} {
+            # for multivoiced tunes
+            for {set n 0} {$n <= $nvoices} {incr n} {
+                set firstvoicecmd 1
+                set voice [lindex $voicelist $n]
+                puts "voice = $voice"
+                for {set i 0} {$i < $nbars} {incr i} {
+                    puts "$voice-$i"
+                    if {![info exist tunepieces($voice-$i)]} continue
+                    puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline"
+                    if {[info exist tunepieces(x-$voice-$i)]} {
+                        set t $tunepieces(x-$voice-$i) 
+                        puts "$t barsinline = $barsinline"
+                        if {[string first "V:" $t] != -1 && $firstvoicecmd == 1} {
+                            if {$newline == 0} {
+                                #puts "\n"
+                                append abcstring "\n"
+                                }
+                            #puts -nonewline "$t"
+                            append abcstring $t
+                            set firstvoicecmd 0
+                            set barsinstaff 0
+                       } else {
+                            set t [strip_out_V_command $t]
+                            if {[string length $t] > 1}  {
+                                if {$newline == 0} {
+                                    #puts -nonewline "\n"
+                                    append abcstring \n
+                                    }
+                                #puts -nonewline "$tunepieces(x-$voice-$i)"
+                                append abcstring $tunepieces(x-$voice-$i)
+                                set barsinline 0
+                                set newline 1
+                            }
+                      }
+
+                       set newline 1
+                       }
+                    
+                    #puts -nonewline "$tunepieces($voice-$i)"
+                    puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline"
+                    append abcstring $tunepieces($voice-$i)
+                    set newline 0
+                    incr barsinline
+                    incr barsinstaff
+                    
+
+                    if {$barsperstaff == $barsinstaff && $newline == 0 } {
+			#if {$midi(reformat_bars)} {
+                        #   puts " % [expr $i + $midi(startbar)]\n"
+                        #   } else {
+                        #   puts "\n"
+                        #   }
+                        set barsinline 0
+                        set barsinstaff 0
+                        set newline 1
+                        }
+                    if  {$barsinline == $barsperline} {
+                         #puts -nonewline "\\\n"
+                         append abcstring \\\n
+                         set barsinline 0
+                         set newline 1 
+                        }
+
+                    if {$barsinline != 0} {set newline 0}
+                    }
+                #$abctxtw insert end "\n"
+                }
+           } else {
+
+            # for tunes with no voices
+            set newline 1
+            for {set i 0} {$i < $nbars} {incr i} {
+
+                if {![info exist tunepieces(0-$i)]} continue
+                puts "tunepieces(0-$i) = $tunepieces(0-$i) barsinline = $barsinline"
+
+                if {[info exist tunepieces(x-0-$i)]} {
+                    if {!$newline} {
+                      #puts -nonewline "\n"
+                      append abcstring \n
+                      set newline 1
+                      }
+                    #puts "$tunepieces(x-0-$i)"
+                    append abcstring $tunepieces(x-0-$i)
+                    }
+
+                #set firstchar [string index $tunepieces(0-$i) 0]
+                #set lastchar [$abctxtw get "end -2 chars"]
+                #if {$firstchar == "%" && $lastchar != "\n"} {
+                #    puts -nonewline "\n"
+                #    }
+                # put any field commands on a new line
+                set success [regexp -indices  $fieldpat $tunepieces(0-$i) location]
+                if {$success} {
+                    set f  [lindex $location 0]} else {
+                    set f -1}
+                if {$f == 0}  {#puts -nonewline "\n"
+                append abcstring \n
+                } else {
+                       #puts -nonewline "$tunepieces(0-$i)"
+                       append abcstring $tunepieces(0-$i)
+                       incr barsinline
+                       incr barsinstaff
+                       set newline 0
+                       }
+
+                if {$barsperstaff == $barsinstaff && $newline == 0 } {
+			if {$midi(reformat_bars)} {
+                           #puts -nonewline " % [expr $i + $midi(startbar)]\n"
+                           append abcstring " % [expr $i + $midi(startbar)]\n"
+                           } else {
+                           #puts "\n"
+                           }
+                        set barsinline 0
+                        set barsinstaff 0
+                        set newline 1
+                        }
+               
+                if {$barsinline == $barsperline} {
+                    append abcstring \\\n 
+                    # $abctxtw insert end "\\\n"
+                    set barsinline 0
+                    set newline 1}
+            }
+            #set lastchar [$abctxtw get "end -2 chars"]
+            #if {$lastchar != "\n"} {$abctxtw insert end "\n"
+            #    incr nlines}
+        }
+    puts "\n\nabcstring = \n$abcstring"
+    return $abcstring
+    }
+
     proc refactor_textcontents {} {
         global abctxtw
         global alreadyloaded
@@ -20554,7 +20852,7 @@ namespace eval Refactor {
                 append tunestring $value}
         }
         erase_all
-        Refactor::process_tune $tunestring
+        Refactor::generate_tunepieces $tunestring
         set alreadyloaded 1
         if {$do_reconstitute} {reconstitute}
     }
@@ -27951,17 +28249,20 @@ proc ::ABCShareLink::generate {args} {
 
 package provide ABCShareLink 1.0
 
+proc run_abctranscription_tools {abcdata} {
+global midi
+#puts "abcdata = $abcdata"
+set deflated [::ABCShareLink::compressDeflate $abcdata]
+#puts "deflated $deflated"
+set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html?def=$deflated&editor=1&play=1  &"
+eval $cmd
+}
 
 proc startup_abctranscription_tools {} {
 global midi
 set sel [title_selected]
 set abcdata [copy_selection_to_string $sel $midi(abc_open)]
-#puts "abcdata = $abcdata"
-set deflated [::ABCShareLink::compressDeflate $abcdata]
-#puts "deflated $deflated"
-
-set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html?def=$deflated&editor=1&play=1  &"
-eval $cmd
+run_abctranscription_tools $abcdata
 }
 
 proc startup_abctranscription_tools_with_midi {} {
@@ -27973,12 +28274,7 @@ set infile $runabcpath/X.tmp
 file rename -force  $infile $runabcpath/X.abc
 set infile $runabcpath/X.abc
 set abcdata [copy_abc_file_to_string $infile]
-#puts "abcdata = $abcdata"
-set deflated [::ABCShareLink::compressDeflate $abcdata]
-#puts "deflated $deflated"
-
-set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html?def=$deflated&editor=1&play=1  &"
-eval $cmd
+run_abctranscription_tools $abcdata
 }
 
 # main program starts here
