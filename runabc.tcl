@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.381
-set runabc_date "(June 21 2026 19:11)"
+set runabc_version 2.383
+set runabc_date "(June 23 2026 17:23)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -743,6 +743,8 @@ proc midi_init {} {
         set midi(path_midicopy) midicopy.exe
         set midi(path_midistats) midistats.exe
         set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
+        set midi(path_abc2xml) "C:/Users/fy733/OneDrive/Documents/abc/tcl/abc2xml_268/abc2xml.exe"
+        set midi(path_muscore) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
 	set midi(path_gs) ""
            
         set midi(path_midiplayer_1) "C:/Program Files/Windows Media Player/wmplayer.exe"
@@ -763,6 +765,8 @@ proc midi_init {} {
         set midi(path_midicopy) midicopy
         set midi(path_midistats) midistats
         set midi(path_ABCarus) ABCarus-x86_64.AppImage
+        set midi(path_abc2xml) /home/seymour/abc2xml_268/abc2xml.py
+        set midi(path_muscore) /usr/bin/mscore
         set midi(path_midiplayer_1) timidity
         set midi(path_midiplayer_2) ""
         set midi(path_midiplayer_3) ""
@@ -1538,6 +1542,8 @@ $w.type add command -label "AbcTranscriptionTools"\
         -command {startup_abctranscription_tools} -font $df
 $w.type add command -label "AbcTranscriptionTools*"\
         -command {startup_abctranscription_tools_with_midi} -font $df
+$w.type add command -label "Export to muscore"\
+        -command {startup_abc2xml} -font $df
         
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
@@ -2235,6 +2241,7 @@ proc display_tunes {abcfile  {nodisplay 0}} {
     global exec_out
     global runabcpath
 
+
     if {$midi(ps_creator) == "yaps"} {
         # YAPS
         set M $midi(yaps_lmargin)x$midi(yaps_tmargin)
@@ -2247,7 +2254,7 @@ proc display_tunes {abcfile  {nodisplay 0}} {
         if {$midi(yaps_bbar)} {append yapsopt " -k"}
         set cmd "exec [list $midi(path_yaps)] [list $abcfile] $yapsopt"
         catch {eval $cmd} result
-        set exec_out "$cmd\n\n$result"
+        append exec_out "$cmd\n\n$result"
         if {[string first "no such" $exec_out] >= 0} {abcmidi_no_such_error $midi(path_yaps)}
         set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
         catch {eval $cmd} result2
@@ -2261,7 +2268,7 @@ proc display_tunes {abcfile  {nodisplay 0}} {
     } elseif {$midi(ps_creator) == "other"} {
         set cmd "exec [list $midi(path_otherps)] [list $abcfile] $midi(otherps)"
         catch {eval $cmd} result
-        set exec_out "$cmd\n\n$result"
+        append exec_out "$cmd\n\n$result"
         set cmd "exec [list $midi(path_gs)] -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -q -sOutputFile=Out.pdf Out.ps "
         catch {eval $cmd} result2
         append exec_out "\n\n$cmd\n$result2"
@@ -2313,12 +2320,12 @@ proc display_tunes {abcfile  {nodisplay 0}} {
         if {$midi(m2ps_output) == "svg" } {
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out001.svg] &"
             catch {eval $cmd} result2
-            set exec_out "$exec_abcm2ps\n\n$cmd\n$result2"
+            append exec_out "$exec_abcm2ps\n\n$cmd\n$result2"
 	    return
         } elseif {$midi(m2ps_output) == "xhtml"} {
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.xhtml] &"
             catch {eval $cmd} result2
-            set exec_out "$exec_abcm2ps\n\n$cmd\n$result2"
+            append exec_out "$exec_abcm2ps\n\n$cmd\n$result2"
 	    return
         } elseif {$midi(m2ps_output) == "eps"} {
 	    set epsmsg "The temporary eps files can be found\
@@ -2337,8 +2344,8 @@ in your $runabcpath folder"
     } elseif {$midi(ps_creator) == "abc2svg"} {
 	    copytohtml $abcfile
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/$midi(outhtml)] &"
-	    catch {eval $cmd} exec_out
-	    set exec_out "$cmd\n$exec_out"
+	    catch {eval $cmd} result
+	    append exec_out "\n$cmd\n$result"
             #puts "for abc2svg: cmd = $cmd exec_out = $exec_out "
 
 
@@ -2353,7 +2360,7 @@ in your $runabcpath folder"
             append exec_out "\n$cmd\n$result2"
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out.pdf] &"
 	    catch {eval $cmd} exec_out
-	    set exec_out "$cmd\n$exec_out"
+	    append exec_out "$cmd\n$exec_out"
 	    return
     }
 }
@@ -3126,7 +3133,7 @@ proc string2Xtmp_for_abc2svg {abcdata fileout} {
     set headerDone 0
     set outhandle [open $fileout w]
     fconfigure $outhandle -encoding utf-8
-    set exec_out "copying abcdata to $fileout"
+    set exec_out "string2Xtmp_for_abc2svg\ncopying abcdata to $fileout"
     foreach line [split $abcdata \n] { 
         if {$midi(ignoreQ) && [string first Q: $line] == 0} continue
         puts $outhandle $line
@@ -8062,15 +8069,13 @@ entry $w.30.1 -width $entryWidth -relief sunken -textvariable midi(path_gs) -fon
 pack $w.30.0 $w.30.1  -side left -padx 5
 bind .abc.cfg.30.1 <Return> {focus .abc.cfg.4}
 
-button $w.11.0 -text musescore -font $df -width 14
-entry $w.11.1 -width $entryWidth -relief sunken -font $df
-pack $w.11.0 $w.11.1 -side left -padx 5
-
 button $w.12.0 -text abc2xml -font $df -width 14
-entry $w.12.1 -width $entryWidth -relief sunken -font $df
+entry $w.12.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_abc2xml)
 pack $w.12.0 $w.12.1 -side left -padx 5
 
-
+button $w.11.0 -text muscore -font $df -width 14
+entry $w.11.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_muscore)
+pack $w.11.0 $w.11.1 -side left -padx 5
 
 
 button $w.5.0 -text "Midi player 1" -width 14  -command {setpath path_midiplayer_1} -font $df
@@ -11780,6 +11785,8 @@ proc show_console_page {text wrapmode} {
         foreach t $taglist {$p.t tag delete $t}
     } else {
         toplevel $p
+        button $p.save -text "save to runabc_home/console.txt" -font $df -command saveConsoleMessages
+        pack $p.save
         text $p.t -height 15 -width 50 -wrap $wrapmode -font $df -yscrollcommand {
             .notice.ysbar set}
         scrollbar $p.ysbar -orient vertical -command {.notice.t yview}
@@ -11806,6 +11813,14 @@ proc show_console_page {text wrapmode} {
     #set active_sheet notice
     #pack $p
     raise $p .
+}
+
+proc saveConsoleMessages {} {
+set t .notice.t
+set contents [$t get 1.0 end]
+set outhandle [open "console.txt" w]
+puts $outhandle  $contents
+close $outhandle
 }
 
 proc show_data_page {text wrapmode clean}  {
@@ -27940,19 +27955,21 @@ show_console_page "saved to $filename" w
 proc startup_ABCarus_editor {} {
 global midi
 global df
+global exec_out
 if {![file exist [list $midi(path_ABCarus)]]} {
    tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
    return
    } 
 set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $midi(abc_open) &"
-catch {eval $cmd} exec_out
-#puts $exec_out
+catch {eval $cmd} result
+set exec_out \n$cmd\n$result
 }
 
 proc startup_ABCarus_editor_selection {} {
 global midi
 global df
 global runabcpath
+global exec_out
 if {![file exist [list $midi(path_ABCarus)]]} {
    tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
    return
@@ -27970,8 +27987,8 @@ set infile $runabcpath/X.abc
 #set infile $runabcpath/$title.abc
 
 set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $infile &"
-catch {eval $cmd} exec_out
-#puts $exec_out
+catch {eval $cmd} result
+append exec_out \n$cmd\n$result
 }
 
 #Part 51.0 Interface to Michael Eskin's abctools
@@ -28251,17 +28268,21 @@ package provide ABCShareLink 1.0
 
 proc run_abctranscription_tools {abcdata} {
 global midi
-#puts "abcdata = $abcdata"
+global exec_out
 set deflated [::ABCShareLink::compressDeflate $abcdata]
-#puts "deflated $deflated"
+append exec_out "\ncreated deflated string"
 set cmd "exec [list $midi(path_internet)] https://michaeleskin.com/abctools/abctools.html?def=$deflated&editor=1&play=1  &"
-eval $cmd
+append exec_out \n$cmd
+catch {eval $cmd} exec_output
+append exec_out \n$exec_output
 }
 
 proc startup_abctranscription_tools {} {
 global midi
+global exec_out
 set sel [title_selected]
 set abcdata [copy_selection_to_string $sel $midi(abc_open)]
+set exec_out "converted selection $sel to string\n"
 run_abctranscription_tools $abcdata
 }
 
@@ -28277,6 +28298,37 @@ set abcdata [copy_abc_file_to_string $infile]
 run_abctranscription_tools $abcdata
 }
 
+#Part 52.0 abc2xml and musecore
+proc startup_abc2xml {} {
+global midi
+global runabcpath
+global exec_out
+set msg "You need to install muscore and set a link to\
+ its location in the Options/ABC Executable page. The\
+ same also applies to abc2xml."
+if {![file exists $midi(path_muscore)]} {
+  show_message_page $msg word
+  }
+set exec_out ""
+set sel [title_selected]
+tune2Xtmp $sel $midi(abc_open) 
+set infile $runabcpath/X.tmp
+file rename -force  $infile $runabcpath/X.abc
+set cmd "exec $midi(path_abc2xml)  $runabcpath/X.abc > X.xml"
+catch {eval $cmd} exec_output
+append exec_out $cmd
+append exec_out \n$exec_output
+
+set cmd "exec [list $midi(path_muscore)] $runabcpath/X.xml"
+
+catch {eval $cmd} exec_output
+append exec_out \n\n$cmd
+append exec_out \n$exec_output
+}
+
+
+
+ 
 # main program starts here
 
 
