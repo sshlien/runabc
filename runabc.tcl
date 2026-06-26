@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.383
-set runabc_date "(June 23 2026 17:23)"
+set runabc_version 2.386
+set runabc_date "(June 26 2026 16:05)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -743,7 +743,8 @@ proc midi_init {} {
         set midi(path_midicopy) midicopy.exe
         set midi(path_midistats) midistats.exe
         set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
-        set midi(path_abc2xml) "C:/Users/fy733/OneDrive/Documents/abc/tcl/abc2xml_268/abc2xml.exe"
+        set midi(path_abc2xml) "choosefile.exe"
+        set midi(path_xml2abc) "choosefile.exe"
         set midi(path_muscore) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
 	set midi(path_gs) ""
            
@@ -765,7 +766,8 @@ proc midi_init {} {
         set midi(path_midicopy) midicopy
         set midi(path_midistats) midistats
         set midi(path_ABCarus) ABCarus-x86_64.AppImage
-        set midi(path_abc2xml) /home/seymour/abc2xml_268/abc2xml.py
+        set midi(path_abc2xml) choosePythonFile
+        set midi(path_xml2abc) choosePythonFile
         set midi(path_muscore) /usr/bin/mscore
         set midi(path_midiplayer_1) timidity
         set midi(path_midiplayer_2) ""
@@ -1455,6 +1457,7 @@ image create photo filesave22 -data {
    dHRwOi8vd3d3LmRldmVsY29yLmNvbQA7
 }
 
+# This icon is not used anymore 2026.06.26
 image create photo netscape -data {
 R0lGODlhEAAQAIYAAPwCBFxaXNTW1Nze3Ly2rJyanPz+/Ozq7GxubPz6/OTi1Ozq3GxiTMzOzCwuLMSijGROLLSqjGRiZOze1LSOdIyKjEw+NHxGJNSqjMTGxPTy7Ozm1NzWxLSSfFw+LMzKvHRuVKyeZHxybOTazOTi3Ly2tDQyNOzm3MS6jFxaRPTu5LyulOzi1KSehMTCxKSOdHxuRMzCpJSGXOTStLyqlHRqRIR2TFRKLLyedLyqdGxWLIR6XOzezJyCZJySbEQqHKyKdFRONJSKfOzaxNTCpKSWbJSSjExKNHxuNOzWvLymhIyKhOTOpHRydHx6bIR+dOTOrLyidAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAAAAALAAAAAAQABAAAAfVgACCAAGFhoaDiQECA40CBAEFAYmCAQMGmAYHCAmSlAEKCwyZCA2dDoIPEIsREgkTFBUICBaoABcYGRobHAodHhkDBBW2AB8fIBwMESEiIxokJSaDJxAUKAwQESkaKicrqBssLS4vBzAfMTIRMwo00zU2LTc4OToQOzU3DDwr04Ixeljw8QNIiCBCYgyJUIxIESMfjuxAwoDDkCRK/j244CNHjhBIPDxYMoPJA1sXIDRxkuOIkycXHsyAEqUYoRk7GDAh8uJFDhw4/lUy4aCo0aJE/QQCACH+aENyZWF0ZWQgYnkgQk1QVG9HSUYgUHJvIHZlcnNpb24gMi41DQqpIERldmVsQ29yIDE5OTcsMTk5OC4gQWxsIHJpZ2h0cyByZXNlcnZlZC4NCmh0dHA6Ly93d3cuZGV2ZWxjb3IuY29tADs=
 }
@@ -1507,9 +1510,6 @@ button .abc.functions.quit -text exit -image exit-22 \
         -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 button .abc.functions.play -text play -font $df -image kmix-16  -command play_action -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 button .abc.functions.disp -text display -font $df -image print-22 -command display_action -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
-button .abc.functions.live -text live -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -font $df -image netscape \
--command {set midi(live_editor) [expr 1 - $midi(live_editor)]
-	 switch_live_editor}
 # suppress calling firefox if right button pressed
 bind .abc.functions.disp <Button-3> {display_action 0} 
 
@@ -1544,6 +1544,8 @@ $w.type add command -label "AbcTranscriptionTools*"\
         -command {startup_abctranscription_tools_with_midi} -font $df
 $w.type add command -label "Export to muscore"\
         -command {startup_abc2xml} -font $df
+$w.type add command -label "xml2abc"\
+        -command {startup_xml2abc} -font $df
         
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
@@ -1551,7 +1553,7 @@ $w.type add command -label "New file"       -command edit_empty_file -font $df
 
 
 set w .abc.functions.utilmenu
-menubutton $w -text edit -font $df -image misc-22  -menu $w.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+menubutton $w -text utilities -font $df -image misc-22  -menu $w.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
 $w.type add command -label "Abc2abc"        -command show_abc2abc_page -font $df
 $w.type add command -label "Gchords/drums to voice" -command g2v_startup -font $df
@@ -1658,7 +1660,7 @@ menu .abc.functions.search.type -tearoff 0
 -command Matcher::match_histogram_correlation
 
 
-menubutton .abc.functions.midi -text midimenu -image kmidi-16  -width 24 -menu .abc.functions.midi.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+menubutton .abc.functions.midi -text midi -image kmidi-16  -width 24 -menu .abc.functions.midi.type -font $df -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu .abc.functions.midi.type -tearoff 0
 .abc.functions.midi.type add command -label "Midisummary"   -font $df  -command make_midi_summary
 .abc.functions.midi.type add command -label "Midi2abc"   -font $df  -command show_midi2abc_page
@@ -1693,7 +1695,7 @@ $w.type add command  -label Help -command {show_message_page $hlp_playopt word} 
 
 
 set w .abc.functions.yaps
-menubutton $w  -text "yaps opts" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+menubutton $w  -text "yaps opts" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg) 
 menu $w.type -tearoff 0
 $w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add command -label options -command {show_ps_page yaps} -font $df
@@ -1708,7 +1710,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
 
 
 set w .abc.functions.abc2svg
-menubutton $w  -text "abc2svg" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+menubutton $w  -text "abc2svg" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg) 
 menu $w.type -tearoff 0
 $w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add command -label "create format file" -font $df \
@@ -1724,7 +1726,7 @@ $w.type.selector add radiobutton -label other  -variable midi(ps_creator) \
         -value other -font $df -command switch_ps_button
 
 set w .abc.functions.abc2ps
-menubutton $w   -text "abc2ps options" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+menubutton $w  -text "abc2ps options" -menu $w.type -font $df -pady 6 -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg) 
 menu $w.type -tearoff 0
 $w.type add checkbutton  -label "Use abc header" -font $df -variable midi(use_abc_header)
 $w.type add command -label "boolean command options"  -command {show_ps_page m2psbool} -font $df
@@ -1776,6 +1778,7 @@ $w.type add checkbutton -label "Ignore blank lines" -variable midi(blank_lines) 
 $w.type add checkbutton -label "Bell on file write" -variable midi(bell_on)  -font $df
 $w.type add checkbutton -label "No confirm for unsaved file" -variable midi(noconfirmsave)  -font $df
 $w.type add checkbutton -label "Reveal button labels" -variable midi(buttonlabels) -command button_label_action -font $df
+$w.type add checkbutton -label "live editor switch" -variable midi(live_editor) -font $df -command switch_live_editor
 $w.type add command  -label "Load runabc extension"    -command {load_extension}  -font $df
 $w.type add checkbutton -label "Help" -font $df -command {show_message_page $hlp_cfg word}
 
@@ -1785,7 +1788,21 @@ if {$tcl_platform(platform) == "windows"} {
 menubutton .abc.functions.help -image help-22 -text help -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.help.actions
 menu .abc.functions.help.actions -tearoff 0
 .abc.functions.help.actions add command -label "Context Help" -command contexthelp -font $df
-.abc.functions.help.actions add command -label "Web help" -font $df -command webhelp
+.abc.functions.help.actions add command -label "Runabc documentation" -font $df -command {openUrl https://runabc.sourceforge.io/}
+.abc.functions.help.actions add command -label "tcltk" -font $df -command {openUrl https://www.magicsplat.com/tcl-installer/index.html}
+.abc.functions.help.actions add command -label "7-zip" -font $df -command {openUrl https://www.7-zip.org/}
+.abc.functions.help.actions add command -label "abcplus" -font $df -command {openUrl https://abcplus.sourceforge.net/}
+.abc.functions.help.actions add command -label "abctools" -font $df -command {openUrl https://michaeleskin.com/abctools/abctools.html}
+.abc.functions.help.actions add command -label "abc2svg" -font $df -command {openUrl http://moinejf.free.fr/}
+.abc.functions.help.actions add command -label "abc2xml" -font $df -command {openUrl https://wim.vree.org/svgParse/abc2xml.html}
+.abc.functions.help.actions add command -label "ABCarus" -font $df -command {openUrl https://github.com/topchyan}
+.abc.functions.help.actions add command -label "Python" -font $df -command {openUrl https://www.python.org/downloads/}
+.abc.functions.help.actions add command -label "abc2midiu" -font $df -command {openUrl https://sourceforge.net/projects/abc2midiu/}
+.abc.functions.help.actions add command -label "runabc" -font $df -command {openUrl https://ifdo.ca/~seymour/runabc/top.html}
+.abc.functions.help.actions add command -label "MPC-BE" -font $df -command {openUrl https://sourceforge.net/projects/mpcbe/}
+.abc.functions.help.actions add command -label "Notation player 5" -font $df -command {openUrl https://www.notation.com/Player.php}
+.abc.functions.help.actions add command -label "TiMidity++" -font $df -command {openUrl https://timidity.sourceforge.net/}
+
 
 tooltip::tooltip .abc.functions.toc  "TOC"
 tooltip::tooltip .abc.functions.editmenu "Edit menu"
@@ -1793,7 +1810,6 @@ tooltip::tooltip .abc.functions.utilmenu "Utilities"
 tooltip::tooltip .abc.functions.play  "Play selection"
 tooltip::tooltip .abc.functions.playopt "Play Option Menu"
 tooltip::tooltip .abc.functions.disp  "Display"
-tooltip::tooltip .abc.functions.live "Live Editor"
 tooltip::tooltip .abc.functions.internals "Internals"
 tooltip::tooltip .abc.functions.midi "Midi Menu"
 tooltip::tooltip .abc.functions.search "Search Menu"
@@ -1811,7 +1827,7 @@ if {$midi(ps_creator) == "yaps"} {
     if {$midi(ps_creator) == "abcm2ps"} {
         .abc.functions.abc2ps configure -text abcm2ps}
 }
-pack .abc.functions.disp .abc.functions.live .abc.functions.internals .abc.functions.search .abc.functions.midi -side left -fill y
+pack .abc.functions.disp  .abc.functions.internals .abc.functions.search .abc.functions.midi -side left -fill y
 pack .abc.functions.cfg -side left -fill y
 pack .abc.functions.help -side left -fill y
 pack .abc.functions.quit -side left -fill y
@@ -2857,9 +2873,6 @@ proc title_selected {} {
         }
 
     set index [.abc.titles.t selection]
-    #puts "title_selected =  [winfo exist .live]"
-    #puts "title_selected index = $index"
-    # in case index is a list 
     set xref [lindex [.abc.titles.t item [lindex $index 0] -values] 0]
     set keysig [lindex [.abc.titles.t item [lindex $index 0] -values] 1]
     set sf [key2sf $keysig]
@@ -6514,7 +6527,7 @@ proc show_config_page {subsection} {
         set cfg_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {45 26 28 1 20 4 30 10 23 29 22 44 11 12} }
+            1 { set w_list {45 26 28 1 20 4 30 10 29 22 44 11 12 23 } }
             2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
             4 { set w_list {9 18 15 16 17 27} }
             5 { set w_list {31} }
@@ -8007,7 +8020,7 @@ for {set i 1} {$i <= 30} {incr i} {
     frame $w.$i
 }
 
-set entryWidth 45
+set entryWidth 48
 
 frame $w.45
 label $w.45.lab -text "ABC Executables" -font $df
@@ -8069,9 +8082,14 @@ entry $w.30.1 -width $entryWidth -relief sunken -textvariable midi(path_gs) -fon
 pack $w.30.0 $w.30.1  -side left -padx 5
 bind .abc.cfg.30.1 <Return> {focus .abc.cfg.4}
 
-button $w.12.0 -text abc2xml -font $df -width 14
+button $w.12.0 -text abc2xml -font $df -width 14 -command {setpath path_abc2xml}
 entry $w.12.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_abc2xml)
 pack $w.12.0 $w.12.1 -side left -padx 5
+
+button $w.23.0 -text xml2abc -font $df -width 14 -command {setpath path_xml2abc}
+entry $w.23.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_xml2abc)
+pack $w.23.0 $w.23.1 -side left -padx 5
+
 
 button $w.11.0 -text muscore -font $df -width 14
 entry $w.11.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_muscore)
@@ -8199,8 +8217,6 @@ pack $w.34.lab $w.34.b0 $w.34.b1 $w.34.b2 $w.34.b3 $w.34.b4 -side left
 frame $w.35
 button $w.35.but -text "Apply options" -font $df -command {configure_buttons}
 pack $w.35.but -side left
-
-#frame $w.11 not used
 
 
 
@@ -9034,6 +9050,12 @@ For most single voiced abc tunes, the input voice name or number\
 proc webhelp {} {
 global midi
 set url "https://runabc.sourceforge.io/"
+set cmd "exec [list $midi(path_internet)] $url &"
+eval $cmd
+}
+
+proc openUrl {url} {
+global midi
 set cmd "exec [list $midi(path_internet)] $url &"
 eval $cmd
 }
@@ -20139,6 +20161,8 @@ namespace eval Refactor {
             }
         }
         if {$nvoices == 0} {set voicelist {0}}
+    puts "tunepieces =\n [array get tunepieces]"
+
     }
     
     proc header_window {} {
@@ -24286,11 +24310,15 @@ $wmenu2 add radiobutton -label "1.00" -command "live_scale 1.00" -font $df
 $wmenu add  radiobutton -label "horizontal orientation" -variable midi(livesashorient) -value hor -command toggle_orientation -font $df
 $wmenu add  radiobutton -label "vertical orientation"  -variable midi(livesashorient) -value ver -command toggle_orientation -font $df
 
+button $head.off -text "turn off live editor" -font $df -command \
+    {set midi(live_editor) 0 
+     destroy .live
+    }
 button $head.help -text "help" -font $df\
      -command {show_message_page $hlp_live_editor word}
 
 
-pack $head.save $head.undo $head.redo $head.lleft $head.left $head.middle $head.right $head.rright $head.play $head.livemenu $head.help -side left
+pack $head.save $head.undo $head.redo $head.lleft $head.left $head.middle $head.right $head.rright $head.play $head.livemenu $head.off $head.help -side left
 
 canvas .live.main.music.c -width 616 -height 300 -scrollregion {0 0 616 796} -yscrollcommand ".live.main.music.vscroll set"
 scrollbar .live.main.music.vscroll -command ".live.main.music.c yview"
@@ -28326,6 +28354,18 @@ append exec_out \n\n$cmd
 append exec_out \n$exec_output
 }
 
+
+proc startup_xml2abc {} {
+global midi
+global runabcpath
+set filedir [file dirname $midi(abc_open)]
+set xmltype {{{xml files} {*.xml *.mxl }}}
+set inputfile [tk_getOpenFile -initialdir $filedir \
+            -filetypes $xmltype]
+set cmd "exec $midi(path_xml2abc) $inputfile > $runabcpath/X.abc"
+puts "cmd = $cmd"
+eval $cmd 
+}
 
 
  
