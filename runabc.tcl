@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.386
-set runabc_date "(June 26 2026 16:05)"
+set runabc_version 2.387
+set runabc_date "(July 01 2026 10:11)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -743,6 +743,7 @@ proc midi_init {} {
         set midi(path_midicopy) midicopy.exe
         set midi(path_midistats) midistats.exe
         set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
+        set midi(Python) ""
         set midi(path_abc2xml) "choosefile.exe"
         set midi(path_xml2abc) "choosefile.exe"
         set midi(path_muscore) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
@@ -1097,6 +1098,12 @@ proc midi_init {} {
 
     #save midi files
     set midi(namelen) 16
+
+    set midi(Python) ""
+    #midi2xml options
+    set midi(xmlu) 0
+    set midi(xmlm) 1
+    set midi(xmlx) 0
 }
 
 # save all options, current abc file
@@ -1543,9 +1550,11 @@ $w.type add command -label "AbcTranscriptionTools"\
 $w.type add command -label "AbcTranscriptionTools*"\
         -command {startup_abctranscription_tools_with_midi} -font $df
 $w.type add command -label "Export to muscore"\
-        -command {startup_abc2xml} -font $df
+        -command {export2muscore} -font $df
 $w.type add command -label "xml2abc"\
         -command {startup_xml2abc} -font $df
+$w.type add command -label "abc2xml"\
+        -command {startup_abc2xml} -font $df
         
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
@@ -6386,6 +6395,8 @@ proc remove_old_sheet {} {
         incipits {pack forget .abc.incipits}
         g2v {pack forget .abc.g2v}
         reformat {pack forget .abc.reformat}
+        xml2abc {pack forget .abc.xml2abc}
+        abc2xml {pack forget .abc.abc2xml}
     }
 }
 
@@ -6519,15 +6530,13 @@ proc show_config_page {subsection} {
     global active_sheet
     global cfg_subsection
     
-    #puts "show_config_page $subsection"
-
     remove_old_sheet
     if {$active_sheet == "config" && $subsection == $cfg_subsection} {
         set active_sheet "none"
         set cfg_subsection 0
     } else {
         switch -- $subsection {
-            1 { set w_list {45 26 28 1 20 4 30 10 29 22 44 11 12 23 } }
+            1 { set w_list {45 26 28 1 20 4 30 10 29 46 22 44 11 12 23 } }
             2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
             4 { set w_list {9 18 15 16 17 27} }
             5 { set w_list {31} }
@@ -8082,6 +8091,11 @@ entry $w.30.1 -width $entryWidth -relief sunken -textvariable midi(path_gs) -fon
 pack $w.30.0 $w.30.1  -side left -padx 5
 bind .abc.cfg.30.1 <Return> {focus .abc.cfg.4}
 
+frame $w.46
+button $w.46.0 -text Python -font $df -width 14
+entry $w.46.1 -width $entryWidth -relief sunken -font $df -textvariable midi(Python)
+pack $w.46.0 $w.46.1 -side left -padx 5
+
 button $w.12.0 -text abc2xml -font $df -width 14 -command {setpath path_abc2xml}
 entry $w.12.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_abc2xml)
 pack $w.12.0 $w.12.1 -side left -padx 5
@@ -8089,7 +8103,6 @@ pack $w.12.0 $w.12.1 -side left -padx 5
 button $w.23.0 -text xml2abc -font $df -width 14 -command {setpath path_xml2abc}
 entry $w.23.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_xml2abc)
 pack $w.23.0 $w.23.1 -side left -padx 5
-
 
 button $w.11.0 -text muscore -font $df -width 14
 entry $w.11.1 -width $entryWidth -relief sunken -font $df -textvariable midi(path_muscore)
@@ -12005,6 +12018,8 @@ foreach item $filelist {
           .ps -
           .eps -
           .pdf -
+          .xml -
+          .mxl -
 	  .xhtml { file delete $item}
   }
  }
@@ -28327,7 +28342,46 @@ run_abctranscription_tools $abcdata
 }
 
 #Part 52.0 abc2xml and musecore
+
 proc startup_abc2xml {} {
+global midi
+global runabcpath
+global exec_out
+global active_sheet
+remove_old_sheet
+pack .abc.abc2xml
+set active_sheet abc2xml
+set exec_out ""
+.abc.abc2xml.msg config -text ""
+set sel [title_selected]
+tune2Xtmp $sel $midi(abc_open) 
+set infiledir [file dirname $midi(abc_open)]
+set infile $runabcpath/X.tmp
+file rename -force  $infile $runabcpath/X.abc
+set abctype {{{abc files} {*.abc *.ABC}}}
+#set inputfile [tk_getOpenFile -initialdir $runabcpath \
+#            -filetypes $abctype]
+set inputfile $runabcpath/X.abc
+if {[string range $midi(path_abc2xml) end-1 end] == "py"} {
+  set cmd "exec $midi(Python) $midi(path_abc2xml) -o $infiledir  $inputfile "
+  } else {
+  set cmd "exec $midi(path_abc2xml) -o $infiledir  $inputfile "
+  }
+catch {eval $cmd} exec_output
+append exec_out $cmd
+append exec_out \n$exec_output
+
+.abc.abc2xml.msg config -text "created file in $infiledir"
+
+#set filedir [file dirname $midi(abc_open)]
+#set xmltype {{{xml files} {*.xml *.mxl }}}
+#set outputfile [tk_getSaveFile -initialdir $filedir \
+#            -filetypes $xmltype]
+#puts "outputfile = $outputfile"
+}
+
+
+proc export2muscore {} {
 global midi
 global runabcpath
 global exec_out
@@ -28354,19 +28408,95 @@ append exec_out \n\n$cmd
 append exec_out \n$exec_output
 }
 
-
 proc startup_xml2abc {} {
 global midi
 global runabcpath
-set filedir [file dirname $midi(abc_open)]
-set xmltype {{{xml files} {*.xml *.mxl }}}
-set inputfile [tk_getOpenFile -initialdir $filedir \
-            -filetypes $xmltype]
-set cmd "exec $midi(path_xml2abc) $inputfile > $runabcpath/X.abc"
-puts "cmd = $cmd"
-eval $cmd 
+global exec_out
+global active_sheet
+remove_old_sheet
+pack  .abc.xml2abc
+set active_sheet xml2abc
 }
 
+proc run_xml2abc {} {
+global midi
+global runabcpath
+global exec_out
+global active_sheet
+set filedir [file dirname $midi(abc_open)]
+set xmltype {{{xml files} {*.xml *.mxl }}}
+set abctype {{{abc files} {*.abc *.ABC}}}
+set inputfile [tk_getOpenFile -initialdir $filedir \
+            -filetypes $xmltype]
+set inputdir [file dirname $inputfile]
+set newfile [file rootname $inputfile].abc
+puts "newfile = $newfile"
+#set savefile [tk_getSaveFile -initialdir $filedir -initialfile $newfile -filetypes $abctype]
+#puts "savefile = $savefile"
+if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
+  set cmd "exec $midi(Python) $midi(path_xml2abc) -o $inputdir  $inputfile "
+  } else {
+  set cmd "exec $midi(path_xml2abc) -o $inputdir  $inputfile "
+  }
+set exec_out "$cmd\n"
+catch {eval $cmd} result
+append exec_out $result
+.abc.xml2abc.msg  config  -text "file stored in $inputdir"
+}
+
+proc help_xml2abc {} {
+global midi
+set url $midi(path_xml2abc)
+set url [string replace $url end-1 end "html"]
+set cmd "exec $midi(path_internet) $url"
+eval $cmd
+}
+
+proc help_abc2xml {} {
+global midi
+set url $midi(path_abc2xml)
+set url [string replace $url end-1 end "html"]
+set cmd "exec $midi(path_internet) $url"
+eval $cmd
+}
+
+proc make_xml_frames {} {
+global df
+frame .abc.xml2abc
+frame .abc.xml2abc.0
+pack .abc.xml2abc.0
+label .abc.xml2abc.0.1 -text "xml2abc configuration" -font $df
+button .abc.xml2abc.0.2 -text help -font $df -command help_xml2abc
+pack .abc.xml2abc.0.1 .abc.xml2abc.0.2 -side left
+set xml .abc.xml2abc.1
+frame $xml
+checkbutton $xml.u -text "simple repeats" -variable midi(xmlu) -font $df
+menubutton $xml.m -text "%%MIDI options" -font $df -menu $xml.m.type
+menu $xml.m.type -tearoff 0
+$xml.m.type add radiobutton -label "only %%MIDI program" -variable midi(xmlm) -value 1 -font $df
+$xml.m.type add radiobutton -label "all %%MIDI commands" -variable midi(xmlm) -value 2 -font $df
+$xml.m.type add radiobutton -label "no MIDI commands" -variable midi(xmlm) -value 0 -font $df
+radiobutton $xml.x -text "line breaks" -font $df -variable midi(xmlx) -font $df
+button .abc.xml2abc.go -text go -command run_xml2abc -font $df
+pack $xml.u $xml.m $xml.x -side left
+pack .abc.xml2abc.0 
+pack $xml 
+pack .abc.xml2abc.go
+label .abc.xml2abc.msg -text "" -font $df
+pack .abc.xml2abc.msg
+
+frame .abc.abc2xml
+frame .abc.abc2xml.0
+label .abc.abc2xml.0.1  -text "abc2xml configuration" -font $df
+button .abc.abc2xml.0.2 -text help -font $df -command help_abc2xml
+pack .abc.abc2xml.0
+pack .abc.abc2xml.0.1 .abc.abc2xml.0.2 -side left
+label .abc.abc2xml.msg -text "" -font $df
+pack .abc.abc2xml.msg
+}
+
+make_xml_frames
+ 
 
  
 # main program starts here
