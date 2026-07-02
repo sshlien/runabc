@@ -33,7 +33,7 @@ exec wish8.6 "$0" "$@"
 
 
 set runabc_version 2.387
-set runabc_date "(July 01 2026 10:11)"
+set runabc_date "(July 01 2026 13:04)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -28447,16 +28447,22 @@ append exec_out $result
 proc help_xml2abc {} {
 global midi
 set url $midi(path_xml2abc)
-set url [string replace $url end-1 end "html"]
-set cmd "exec $midi(path_internet) $url"
+if {[string range $url end-1 end] == "py"} {
+   set url [string replace $url end-1 end "html"]} else {
+   set url [string replace $url end-2 end "html"]}
+
+set cmd "exec [list $midi(path_internet)] $url"
 eval $cmd
 }
 
 proc help_abc2xml {} {
 global midi
 set url $midi(path_abc2xml)
-set url [string replace $url end-1 end "html"]
-set cmd "exec $midi(path_internet) $url"
+if {[string range $url end-1 end] == "py"} {
+    set url [string replace $url end-1 end "html"]} else {
+    set url [string replace $url end-2 end "html"]}
+
+set cmd "exec [list $midi(path_internet)] $url"
 eval $cmd
 }
 
