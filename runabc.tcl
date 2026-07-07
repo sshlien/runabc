@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.387
-set runabc_date "(July 01 2026 13:04)"
+set runabc_version 2.388
+set runabc_date "(July 06 2026 14:56"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1104,6 +1104,13 @@ proc midi_init {} {
     set midi(xmlu) 0
     set midi(xmlm) 1
     set midi(xmlx) 0
+    set midi(xmlf) 1
+    set midi(xmlr) 0
+    set midi(xmlz) 0
+    set midi(xmlt) 0
+
+    set midi(xml_library)  ""
+    set midi(from_xml_folder) ""
 }
 
 # save all options, current abc file
@@ -1551,10 +1558,6 @@ $w.type add command -label "AbcTranscriptionTools*"\
         -command {startup_abctranscription_tools_with_midi} -font $df
 $w.type add command -label "Export to muscore"\
         -command {export2muscore} -font $df
-$w.type add command -label "xml2abc"\
-        -command {startup_xml2abc} -font $df
-$w.type add command -label "abc2xml"\
-        -command {startup_abc2xml} -font $df
         
 
 $w.type add command -label "New tune"       -command edit_new_tune -font $df
@@ -1688,7 +1691,7 @@ menu .abc.functions.midi.type -tearoff 0
 # second row of buttons
 button .abc.functions.toc -text toc -image content-22 -command show_titles_page -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -font $df
 set w .abc.functions.playopt
-menubutton $w -text "play options" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
+menubutton $w -text "play\noptions" -image settings-22 -font $df -menu $w.type -borderwidth $midi(butborder) -relief $midi(butrelief) -bg $midi(butbg)
 menu $w.type -tearoff 0
 $w.type add checkbutton -label "do not add %%MIDI cmds" -font $df -variable midi(noMIDI)
 $w.type add checkbutton -label "Use midi header" -font $df -variable midi(use_midi_header)
@@ -1794,6 +1797,13 @@ $w.type add checkbutton -label "Help" -font $df -command {show_message_page $hlp
 if {$tcl_platform(platform) == "windows"} {
     $w.type add command  -label "Register .abc files" -command associate_abc -font $df}
 
+menubutton .abc.functions.xml -text xml -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.xml.actions
+menu .abc.functions.xml.actions -tearoff 0
+.abc.functions.xml.actions add command -label "xml2abc"\
+        -command {startup_xml2abc} -font $df
+.abc.functions.xml.actions add command -label "abc2xml"\
+        -command {startup_abc2xml} -font $df
+
 menubutton .abc.functions.help -image help-22 -text help -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.help.actions
 menu .abc.functions.help.actions -tearoff 0
 .abc.functions.help.actions add command -label "Context Help" -command contexthelp -font $df
@@ -1823,6 +1833,7 @@ tooltip::tooltip .abc.functions.internals "Internals"
 tooltip::tooltip .abc.functions.midi "Midi Menu"
 tooltip::tooltip .abc.functions.search "Search Menu"
 tooltip::tooltip .abc.functions.cfg   "Options"
+tooltip::tooltip .abc.functions.xml   "Music xml"
 tooltip::tooltip .abc.functions.help  "Help"
 tooltip::tooltip .abc.functions.quit  "Quit"
 
@@ -1838,6 +1849,7 @@ if {$midi(ps_creator) == "yaps"} {
 }
 pack .abc.functions.disp  .abc.functions.internals .abc.functions.search .abc.functions.midi -side left -fill y
 pack .abc.functions.cfg -side left -fill y
+pack .abc.functions.xml -side left -fill y
 pack .abc.functions.help -side left -fill y
 pack .abc.functions.quit -side left -fill y
 
@@ -28354,30 +28366,31 @@ set active_sheet abc2xml
 set exec_out ""
 .abc.abc2xml.msg config -text ""
 set sel [title_selected]
-tune2Xtmp $sel $midi(abc_open) 
-set infiledir [file dirname $midi(abc_open)]
-set infile $runabcpath/X.tmp
-file rename -force  $infile $runabcpath/X.abc
-set abctype {{{abc files} {*.abc *.ABC}}}
-#set inputfile [tk_getOpenFile -initialdir $runabcpath \
-#            -filetypes $abctype]
-set inputfile $runabcpath/X.abc
+}
+
+proc run_abc2xml {} {
+global midi
+set sel [title_selected]
+scan $sel "I%x" skip
+incr skip -1
 if {[string range $midi(path_abc2xml) end-1 end] == "py"} {
-  set cmd "exec $midi(Python) $midi(path_abc2xml) -o $infiledir  $inputfile "
-  } else {
-  set cmd "exec $midi(path_abc2xml) -o $infiledir  $inputfile "
-  }
+   set cmd "exec $midi(Python) $midi(path_abc2xml) -m $skip 1 -o. "
+ } else {
+ set cmd "exec $midi(path_abc2xml)  -m $skip 1 -o. "
+ }
+
+if {$midi(xmlr)} {append cmd " -r"}
+if {$midi(xmlf)} {append cmd " -f"}
+if {$midi(xmlx)} {append cmd " -z"}
+if {$midi(xmlt)} {append cmd " -t"}
+append cmd $midi(abc_open)
+puts "cmd = $cmd"
+
 catch {eval $cmd} exec_output
 append exec_out $cmd
 append exec_out \n$exec_output
 
-.abc.abc2xml.msg config -text "created file in $infiledir"
-
-#set filedir [file dirname $midi(abc_open)]
-#set xmltype {{{xml files} {*.xml *.mxl }}}
-#set outputfile [tk_getSaveFile -initialdir $filedir \
-#            -filetypes $xmltype]
-#puts "outputfile = $outputfile"
+.abc.abc2xml.msg config -text "created file in [file dirname $midi(abc_open)]"
 }
 
 
@@ -28424,20 +28437,23 @@ global runabcpath
 global exec_out
 global active_sheet
 set filedir [file dirname $midi(abc_open)]
+set inputdir $midi(xml_library)
 set xmltype {{{xml files} {*.xml *.mxl }}}
 set abctype {{{abc files} {*.abc *.ABC}}}
-set inputfile [tk_getOpenFile -initialdir $filedir \
+set inputfile [tk_getOpenFile -initialdir $inputdir \
             -filetypes $xmltype]
 set inputdir [file dirname $inputfile]
+set midi(xml_library) $inputdir
 set newfile [file rootname $inputfile].abc
 puts "newfile = $newfile"
 #set savefile [tk_getSaveFile -initialdir $filedir -initialfile $newfile -filetypes $abctype]
 #puts "savefile = $savefile"
 if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
-  set cmd "exec $midi(Python) $midi(path_xml2abc) -o $inputdir  $inputfile "
+  set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -o $inputdir  $inputfile "
   } else {
   set cmd "exec $midi(path_xml2abc) -o $inputdir  $inputfile "
   }
+puts "cmd = $cmd"
 set exec_out "$cmd\n"
 catch {eval $cmd} result
 append exec_out $result
@@ -28451,7 +28467,7 @@ if {[string range $url end-1 end] == "py"} {
    set url [string replace $url end-1 end "html"]} else {
    set url [string replace $url end-2 end "html"]}
 
-set cmd "exec [list $midi(path_internet)] $url"
+set cmd "exec [list $midi(path_internet)] $url &"
 eval $cmd
 }
 
@@ -28462,7 +28478,7 @@ if {[string range $url end-1 end] == "py"} {
     set url [string replace $url end-1 end "html"]} else {
     set url [string replace $url end-2 end "html"]}
 
-set cmd "exec [list $midi(path_internet)] $url"
+set cmd "exec [list $midi(path_internet)] $url &"
 eval $cmd
 }
 
@@ -28496,9 +28512,20 @@ frame .abc.abc2xml.0
 label .abc.abc2xml.0.1  -text "abc2xml configuration" -font $df
 button .abc.abc2xml.0.2 -text help -font $df -command help_abc2xml
 pack .abc.abc2xml.0
-pack .abc.abc2xml.0.1 .abc.abc2xml.0.2 -side left
+pack .abc.abc2xml.0.1 .abc.abc2xml.0.2 -side left -anchor w
+checkbutton .abc.abc2xml.1 -text "show whole measure rests" -font $df -variable  midi(xlmr)
+pack .abc.abc2xml.1 -anchor w
+checkbutton .abc.abc2xml.2 -text "default_linebreak is EOL" -font $df -variable midi(xmlf)
+pack .abc.abc2xml.2 -anchor w
+checkbutton .abc.abc2xml.3 -text "compressed mode - mxl" -font $df -variable midi(xmlz)
+pack .abc.abc2xml.3 -anchor w
+checkbutton .abc.abc2xml.4 -text "derive filename from first T: field " -font $df -variable midi(xmlt)
+pack .abc.abc2xml.4 -anchor w
+button .abc.abc2xml.go -text go -font $df -command run_abc2xml
+pack .abc.abc2xml.go -anchor w
+
 label .abc.abc2xml.msg -text "" -font $df
-pack .abc.abc2xml.msg
+pack .abc.abc2xml.msg -anchor w
 }
 
 make_xml_frames
