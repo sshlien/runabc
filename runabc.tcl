@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.388
-set runabc_date "(July 06 2026 14:56"
+set runabc_version 2.391
+set runabc_date "(July 10 2026 13:22)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -104,6 +104,8 @@ if {[catch {package require Ttk} error]} {
 # Part 48.0               get_geometry_of_all_toplevels
 # Part 49.0               midinotes
 # Part 50.0               Links to other abc interfaces
+# Part 51.0               Interface to Michael Eskin's abctools
+# Part 52.0               abc2xml and musecore
 
 
 
@@ -757,7 +759,8 @@ proc midi_init {} {
         set midi(midiplayer_2_options) ""
         set midi(midiplayer_3_options) ""
         set midi(midiplayer_4_options) ""
-        set midi(path_internet) "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"} else {
+        set midi(path_internet) "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+       } else {        #not Windows PC
         set midi(path_yaps) yaps
         set midi(path_abcm2ps) abcm2ps
         set midi(path_abcmatch) abcmatch
@@ -1108,9 +1111,11 @@ proc midi_init {} {
     set midi(xmlr) 0
     set midi(xmlz) 0
     set midi(xmlt) 0
+    set midi(xmlb) 4
 
     set midi(xml_library)  ""
-    set midi(from_xml_folder) ""
+    set midi(to_abc_folder) ""
+    set midi(to_xml_folder) ""
 }
 
 # save all options, current abc file
@@ -1655,6 +1660,7 @@ menu .abc.functions.internals.type -tearoff 0
 .abc.functions.internals.type add command -label "Midinotes of output midi file" -font $df\
    -command {midinoteswindow $midioutput}
 .abc.functions.internals.type add command -label "Contents of runabc_home" -command dirhome -font $df -accelerator "ctrl-h"
+.abc.functions.internals.type add command -label "Edit runabc.ini" -command edit_runabc.ini -font $df 
 .abc.functions.internals.type add command -label "Bar line alignment" -command {show_bar_line_alignment} -font $df
 .abc.functions.internals.type add command -label "Help" -font $df \
        -command {show_message_page $hlp_internals word}
@@ -1803,6 +1809,8 @@ menu .abc.functions.xml.actions -tearoff 0
         -command {startup_xml2abc} -font $df
 .abc.functions.xml.actions add command -label "abc2xml"\
         -command {startup_abc2xml} -font $df
+.abc.functions.xml.actions add command -label "xml library"\
+        -command {open_xml_library} -font $df
 
 menubutton .abc.functions.help -image help-22 -text help -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.help.actions
 menu .abc.functions.help.actions -tearoff 0
@@ -3831,6 +3839,14 @@ proc abc_edit {varname} {
         tcl_abc_edit $abcfile 1
     }
 }
+
+proc call_editor {infile} {
+    global midi
+    global exec_out
+    set cmd "exec [list $midi(path_editor)] [list $infile] &"
+    catch {eval $cmd} exec_out
+    set exec_out $cmd\n\n$exec_out
+    }
 
 
 # Part 10.0            Abc Editor Functions
@@ -12038,6 +12054,12 @@ foreach item $filelist {
  dirhome
 }
 
+proc edit_runabc.ini {} {
+global runabcpath
+global midi
+set cmd "exec [list $midi(path_editor)] [list $runabcpath/runabc.ini]"
+eval $cmd &
+}
 
 set hlp_internals "Internals\n\n\
 
@@ -28015,9 +28037,7 @@ if {![file exist [list $midi(path_ABCarus)]]} {
    tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
    return
    } 
-set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $midi(abc_open) &"
-catch {eval $cmd} result
-set exec_out \n$cmd\n$result
+run_ABCarus $midi(abc_open)
 }
 
 proc startup_ABCarus_editor_selection {} {
@@ -28025,22 +28045,21 @@ global midi
 global df
 global runabcpath
 global exec_out
-if {![file exist [list $midi(path_ABCarus)]]} {
-   tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
-   return
-   } 
 set sel [title_selected]
-#set title [extract_title_of_tune $sel $midi(abc_open)]
-#set title [string range $title 0 $midi(namelen)]
-#set title [string map {, _ ? _ : _ ; _ > _ < _ = _} $title]
-#puts $title
 tune2Xtmp $sel $midi(abc_open) 
 set infile $runabcpath/X.tmp
 file rename -force  $infile $runabcpath/X.abc
 set infile $runabcpath/X.abc
-#file rename -force  $infile $runabcpath/$title.abc
-#set infile $runabcpath/$title.abc
+run_ABCarus $infile
+}
 
+proc run_ABCarus {infile} {
+global midi
+global exec_out
+if {![file exist [list $midi(path_ABCarus)]]} {
+   tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
+   return
+   } 
 set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $infile &"
 catch {eval $cmd} result
 append exec_out \n$cmd\n$result
@@ -28321,6 +28340,8 @@ proc ::ABCShareLink::generate {args} {
 
 package provide ABCShareLink 1.0
 
+
+
 proc run_abctranscription_tools {abcdata} {
 global midi
 global exec_out
@@ -28331,6 +28352,13 @@ append exec_out \n$cmd
 catch {eval $cmd} exec_output
 append exec_out \n$exec_output
 }
+
+proc run_abctranscription_tools_for {infile} {
+   set inhandle [open [list $infile]]
+   set abcdata [read $inhandle]
+   close $inhandle 
+   run_abctranscription_tools $abcdata
+   }
 
 proc startup_abctranscription_tools {} {
 global midi
@@ -28362,35 +28390,56 @@ global exec_out
 global active_sheet
 remove_old_sheet
 pack .abc.abc2xml
+pack forget .abc.abc2xml.musc 
 set active_sheet abc2xml
 set exec_out ""
 .abc.abc2xml.msg config -text ""
 set sel [title_selected]
 }
 
+proc get_output_xml_filename {result} {
+# scans abc2xml stdout for string
+# ... written
+set linelist [split $result "\n"]
+foreach line $linelist {
+  if {[string first "written" $line ]> 1} {
+    return [string range $line 0 end-8]
+    }
+  }
+}
+
 proc run_abc2xml {} {
 global midi
+global exec_out
 set sel [title_selected]
 scan $sel "I%x" skip
 incr skip -1
 if {[string range $midi(path_abc2xml) end-1 end] == "py"} {
-   set cmd "exec $midi(Python) $midi(path_abc2xml) -m $skip 1 -o. "
+   set cmd "exec $midi(Python) $midi(path_abc2xml) -m $skip 1 -o "
  } else {
- set cmd "exec $midi(path_abc2xml)  -m $skip 1 -o. "
+ set cmd "exec $midi(path_abc2xml)  -m $skip 1 -o "
  }
+set directory $midi(to_xml_folder)
+append cmd $directory
 
-if {$midi(xmlr)} {append cmd " -r"}
-if {$midi(xmlf)} {append cmd " -f"}
-if {$midi(xmlx)} {append cmd " -z"}
-if {$midi(xmlt)} {append cmd " -t"}
+if {$midi(xmlr)} {append cmd " -r "}
+if {$midi(xmlf)} {append cmd " -f "}
+if {$midi(xmlz)} {append cmd " -z "}
+if {$midi(xmlt)} {append cmd " -t "}
 append cmd $midi(abc_open)
-puts "cmd = $cmd"
+#puts "cmd = $cmd"
 
 catch {eval $cmd} exec_output
+puts "output file = [get_output_xml_filename $exec_output]"
+
 append exec_out $cmd
 append exec_out \n$exec_output
 
-.abc.abc2xml.msg config -text "created file in [file dirname $midi(abc_open)]"
+.abc.abc2xml.msg config -text "created file in $directory"
+set outxml $directory/[file tail $midi(abc_open)]
+set outxml [string range $outxml 0 end-3]xml
+.abc.abc2xml.musc configure -command "muscore $outxml"
+pack .abc.abc2xml.musc 
 }
 
 
@@ -28409,16 +28458,23 @@ set sel [title_selected]
 tune2Xtmp $sel $midi(abc_open) 
 set infile $runabcpath/X.tmp
 file rename -force  $infile $runabcpath/X.abc
-set cmd "exec $midi(path_abc2xml)  $runabcpath/X.abc > X.xml"
+if {[string range $midi(path_abc2xml) end-1 end] == "py"} {
+   set cmd "exec $midi(Python) $midi(path_abc2xml) $runabcpath/X.abc > X.xml "
+ } else {
+ set cmd "exec $midi(path_abc2xml)  $runabcpath/X.abc > X.xml "
+ }
 catch {eval $cmd} exec_output
 append exec_out $cmd
 append exec_out \n$exec_output
+muscore $runabcpath/X.xml
+}
 
-set cmd "exec [list $midi(path_muscore)] $runabcpath/X.xml"
-
+proc muscore {myfile} {
+global midi
+global exec_out
+set cmd "exec [list $midi(path_muscore)] $myfile"
 catch {eval $cmd} exec_output
 append exec_out \n\n$cmd
-append exec_out \n$exec_output
 }
 
 proc startup_xml2abc {} {
@@ -28429,6 +28485,8 @@ global active_sheet
 remove_old_sheet
 pack  .abc.xml2abc
 set active_sheet xml2abc
+pack forget .abc.xml2abc.output 
+if {![winfo exists .xmllibrary]} {open_xml_library}
 }
 
 proc run_xml2abc {} {
@@ -28436,28 +28494,34 @@ global midi
 global runabcpath
 global exec_out
 global active_sheet
+set inputfile "$midi(xml_library)/[selected_xml]"
+
 set filedir [file dirname $midi(abc_open)]
 set inputdir $midi(xml_library)
-set xmltype {{{xml files} {*.xml *.mxl }}}
-set abctype {{{abc files} {*.abc *.ABC}}}
-set inputfile [tk_getOpenFile -initialdir $inputdir \
-            -filetypes $xmltype]
 set inputdir [file dirname $inputfile]
 set midi(xml_library) $inputdir
-set newfile [file rootname $inputfile].abc
-puts "newfile = $newfile"
-#set savefile [tk_getSaveFile -initialdir $filedir -initialfile $newfile -filetypes $abctype]
-#puts "savefile = $savefile"
+set newfile "$midi(to_abc_folder)/[file tail $inputfile]"
+set newfile "[file rootname $newfile].abc"
+#puts "newfile = $newfile"
 if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
-  set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -o $inputdir  $inputfile "
+  set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -o $midi(to_abc_folder)  "
   } else {
-  set cmd "exec $midi(path_xml2abc) -o $inputdir  $inputfile "
+  set cmd "exec $midi(path_xml2abc) -o $midi(to_abc_folder) "
   }
-puts "cmd = $cmd"
+if {$midi(xmlb) > 0} {append cmd " -b $midi(xmlb) "}
+#puts "cmd = $cmd"
+append cmd [list $inputfile]
+
 set exec_out "$cmd\n"
 catch {eval $cmd} result
 append exec_out $result
-.abc.xml2abc.msg  config  -text "file stored in $inputdir"
+.abc.xml2abc.msg  config  -text "file stored in $midi(to_abc_folder)"
+.abc.xml2abc.output.prt configure -command "display_tunes [list $newfile]"
+.abc.xml2abc.output.edt configure -command  "call_editor [list $newfile]"
+.abc.xml2abc.output1.carus configure -command  "run_ABCarus [list $newfile]"
+.abc.xml2abc.output1.abctrans configure -command  "run_abctranscription_tools_for [list $newfile]"
+pack .abc.xml2abc.output 
+pack .abc.xml2abc.output1 
 }
 
 proc help_xml2abc {} {
@@ -28499,13 +28563,41 @@ $xml.m.type add radiobutton -label "only %%MIDI program" -variable midi(xmlm) -v
 $xml.m.type add radiobutton -label "all %%MIDI commands" -variable midi(xmlm) -value 2 -font $df
 $xml.m.type add radiobutton -label "no MIDI commands" -variable midi(xmlm) -value 0 -font $df
 radiobutton $xml.x -text "line breaks" -font $df -variable midi(xmlx) -font $df
+frame .abc.xml2abc.2
+pack .abc.xml2abc.2
+button .abc.xml2abc.2.but -text "save output in" -font $df -command {
+   set midi(to_abc_folder) [tk_chooseDirectory -title "Choose abc folder"]}
+entry .abc.xml2abc.2.ent -width 50 -font $df -textvariable midi(to_abc_folder)
+pack .abc.xml2abc.2.but .abc.xml2abc.2.ent -side left
 button .abc.xml2abc.go -text go -command run_xml2abc -font $df
 pack $xml.u $xml.m $xml.x -side left
 pack .abc.xml2abc.0 
 pack $xml 
+
+menubutton $xml.b -text "bars/per line" -font $df -menu $xml.b.type
+menu $xml.b.type -tearoff 0
+$xml.b.type add radiobutton -label "default" -variable midi(xmlb) -value 0 -font $df
+$xml.b.type add radiobutton -label "1/line" -variable midi(xmlb) -value 1 -font $df
+$xml.b.type add radiobutton -label "2/line" -variable midi(xmlb) -value 2 -font $df
+$xml.b.type add radiobutton -label "3/line" -variable midi(xmlb) -value 3 -font $df
+$xml.b.type add radiobutton -label "4/line" -variable midi(xmlb) -value 4 -font $df
+$xml.b.type add radiobutton -label "5/line" -variable midi(xmlb) -value 5 -font $df
+$xml.b.type add radiobutton -label "6/line" -variable midi(xmlb) -value 6 -font $df
+$xml.b.type add radiobutton -label "7/line" -variable midi(xmlb) -value 7 -font $df
+$xml.b.type add radiobutton -label "8/line" -variable midi(xmlb) -value 8 -font $df
+pack $xml.b
+
 pack .abc.xml2abc.go
 label .abc.xml2abc.msg -text "" -font $df
 pack .abc.xml2abc.msg
+frame .abc.xml2abc.output
+frame .abc.xml2abc.output1
+button .abc.xml2abc.output.prt -text "display output abc" -font $df
+button .abc.xml2abc.output.edt -text "edit output abc" -font $df
+button .abc.xml2abc.output1.carus -text "open with ABCarus" -font $df 
+button .abc.xml2abc.output1.abctrans -text "open with ABCTranscriptiontools" -font $df 
+pack  .abc.xml2abc.output.prt .abc.xml2abc.output.edt  -side left
+pack  .abc.xml2abc.output1.carus .abc.xml2abc.output1.abctrans -side left
 
 frame .abc.abc2xml
 frame .abc.abc2xml.0
@@ -28513,6 +28605,14 @@ label .abc.abc2xml.0.1  -text "abc2xml configuration" -font $df
 button .abc.abc2xml.0.2 -text help -font $df -command help_abc2xml
 pack .abc.abc2xml.0
 pack .abc.abc2xml.0.1 .abc.abc2xml.0.2 -side left -anchor w
+
+frame .abc.abc2xml.5
+pack .abc.abc2xml.5
+button .abc.abc2xml.5.but -text "save output in" -font $df -command {
+   set midi(to_xml_folder) [tk_chooseDirectory -title "Choose abc folder"]}
+entry .abc.abc2xml.5.ent -width 50 -font $df -textvariable midi(to_xml_folder)
+pack .abc.abc2xml.5.but .abc.abc2xml.5.ent -side left
+
 checkbutton .abc.abc2xml.1 -text "show whole measure rests" -font $df -variable  midi(xlmr)
 pack .abc.abc2xml.1 -anchor w
 checkbutton .abc.abc2xml.2 -text "default_linebreak is EOL" -font $df -variable midi(xmlf)
@@ -28524,13 +28624,66 @@ pack .abc.abc2xml.4 -anchor w
 button .abc.abc2xml.go -text go -font $df -command run_abc2xml
 pack .abc.abc2xml.go -anchor w
 
+
+button .abc.abc2xml.musc -text "open with muscore" -font $df 
+
 label .abc.abc2xml.msg -text "" -font $df
 pack .abc.abc2xml.msg -anchor w
 }
 
 make_xml_frames
- 
 
+ 
+proc open_xml_library {} {
+global df
+global midi
+toplevel .xmllibrary
+set x .xmllibrary
+frame $x.top
+button $x.top.b -text browse -font $df -command {
+   set midi(xml_library) [tk_chooseDirectory -title "Choose xml/mxl folder" -initialdir $midi(xml_library)]
+   load_xml_library
+   } 
+pack $x.top.b -side left
+frame $x.list
+pack $x.top $x.list -side top
+listbox $x.list.box -width 50 -bg #f4ece0 \
+            -yscrollcommand {.xmllibrary.list.ysbar set} \
+            -xscrollcommand {.xmllibrary.list.xsbar set} \
+            -font $df -exportselection false
+scrollbar $x.list.ysbar -orient vertical -command {.xmllibrary.list.box yview}
+scrollbar $x.list.xsbar -orient horizontal -command {.xmllibrary.list.box xview}
+pack $x.list.xsbar -side bottom  -fill x -side bottom
+pack $x.list.ysbar -side right   -fill y 
+pack $x.list.box -side left -expand 1 -fill both
+#set midi(xml_library) "/home/seymour/library-master/scores"
+load_xml_library
+}
+
+proc load_xml_library {} {
+global midi
+global df
+set folder $midi(xml_library)
+set stringlength [string length $folder]
+incr stringlength
+set collection [glob -directory $folder *.mxl *.xml]
+.xmllibrary.list.box delete 0 end
+foreach item $collection {
+  set clippedItem [string range $item $stringlength end]
+  .xmllibrary.list.box  insert end $clippedItem
+  }
+bind .xmllibrary.list.box  <<ListboxSelect>> {
+    pack forget .abc.xml2abc.output
+    pack forget .abc.xml2abc.output1}
+}
+
+proc selected_xml {} {
+set index [.xmllibrary.list.box curselection]
+if {$index == ""} {set index 0
+                 tk_messageBox -message "first select a file in the xml library listbox" -type ok
+                 }
+return [.xmllibrary.list.box get $index]
+}
  
 # main program starts here
 
