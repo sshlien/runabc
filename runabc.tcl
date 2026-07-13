@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.391
-set runabc_date "(July 10 2026 13:22)"
+set runabc_version 2.394
+set runabc_date "(July 12 2026 19:16)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -6837,15 +6837,15 @@ button $w.4.1 -text "reformat" -font $df\
         }
 pack $w.4.1 -side left
 pack $w.4
-button $w.5.1 -text edit -font $df\
-        -command {startup_tcl_abc_edit 0
-                  set tunestring [return_selected_tune]
-                  Refactor::generate_tunepieces $tunestring
-                  Refactor::reconstitute}
-button $w.5.2 -text save -font $df
+button $w.5.1 -text edit -font $df -command "call_editor X.tmp"
+#        -command {startup_tcl_abc_edit 0
+#                  set tunestring [return_selected_tune]
+#                  Refactor::generate_tunepieces $tunestring
+#                  Refactor::reconstitute}
+#button $w.5.2 -text save -font $df
 button $w.5.3 -text "to abctranscriptiontools" \
         -command {run_abctranscription_tools $abcstring} -font $df
-pack $w.5.1 $w.5.2 $w.5.3 -side left
+pack $w.5.1 $w.5.3 -side left
 
 label $w.mesg -text "" -font $df
 pack $w.mesg
@@ -20210,7 +20210,7 @@ namespace eval Refactor {
             }
         }
         if {$nvoices == 0} {set voicelist {0}}
-    puts "tunepieces =\n [array get tunepieces]"
+    #puts "tunepieces =\n [array get tunepieces]"
 
     }
     
@@ -20464,6 +20464,7 @@ namespace eval Refactor {
         } else {
             set abcstring [reconstituteText_pieces_separate_voices]
         }
+        abcstring_to_file $abcstring X.tmp
         return $abcstring
     }
     
@@ -20575,7 +20576,7 @@ namespace eval Refactor {
 	global midi
         set fieldpat {^L:|^M:|^K:|^Q:|^w:|V:}
         
-        puts "in reconstituteText_pieces_voice_interleaved"
+        #puts "in reconstituteText_pieces_voice_interleaved"
 
         if {$barsperline < 1} {set barsperline 1}
         
@@ -20788,7 +20789,7 @@ namespace eval Refactor {
         global barsperline barsperstaff
 	global midi
         set fieldpat {^L:|^M:|^K:|^Q:|^w:}
-        puts "in reconstituteText_pieces_separate_voices"
+        #puts "in reconstituteText_pieces_separate_voices"
         #puts -nonewline $tunepieces(head)
         set abcstring $tunepieces(head)
         #        $abctxtw tag bind head <ButtonPress-1> [list barclick head]
@@ -20803,14 +20804,15 @@ namespace eval Refactor {
             for {set n 0} {$n <= $nvoices} {incr n} {
                 set firstvoicecmd 1
                 set voice [lindex $voicelist $n]
-                puts "voice = $voice"
+                #puts "voice = $voice"
+                set barsinline 0
                 for {set i 0} {$i < $nbars} {incr i} {
-                    puts "$voice-$i"
+                    #puts "$voice-$i"
                     if {![info exist tunepieces($voice-$i)]} continue
-                    puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline"
+                    #puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline"
                     if {[info exist tunepieces(x-$voice-$i)]} {
                         set t $tunepieces(x-$voice-$i) 
-                        puts "$t barsinline = $barsinline"
+                        #puts "$t barsinline = $barsinline barsinstaff = $barsinstaff"
                         if {[string first "V:" $t] != -1 && $firstvoicecmd == 1} {
                             if {$newline == 0} {
                                 #puts "\n"
@@ -20838,7 +20840,7 @@ namespace eval Refactor {
                        }
                     
                     #puts -nonewline "$tunepieces($voice-$i)"
-                    puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline"
+                    #puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline barsinstaff = $barsinstaff"
                     append abcstring $tunepieces($voice-$i)
                     set newline 0
                     incr barsinline
@@ -20846,14 +20848,10 @@ namespace eval Refactor {
                     
 
                     if {$barsperstaff == $barsinstaff && $newline == 0 } {
-			#if {$midi(reformat_bars)} {
-                        #   puts " % [expr $i + $midi(startbar)]\n"
-                        #   } else {
-                        #   puts "\n"
-                        #   }
                         set barsinline 0
                         set barsinstaff 0
-                        set newline 1
+                        append abcstring \n
+                        set newline 0
                         }
                     if  {$barsinline == $barsperline} {
                          #puts -nonewline "\\\n"
@@ -20927,7 +20925,7 @@ namespace eval Refactor {
             #if {$lastchar != "\n"} {$abctxtw insert end "\n"
             #    incr nlines}
         }
-    puts "\n\nabcstring = \n$abcstring"
+    #puts "\n\nabcstring = \n$abcstring"
     return $abcstring
     }
 
@@ -20948,6 +20946,13 @@ namespace eval Refactor {
     
     
 }
+
+proc abcstring_to_file {abcstring filename} {
+set outhandle [open $filename w]
+puts $outhandle $abcstring
+close $outhandle
+}
+
 
 # end of namespace Refactor
 
@@ -28424,21 +28429,22 @@ append cmd $directory
 
 if {$midi(xmlr)} {append cmd " -r "}
 if {$midi(xmlf)} {append cmd " -f "}
-if {$midi(xmlz)} {append cmd " -z "}
+if {$midi(xmlz)} {append cmd " -z r "}
 if {$midi(xmlt)} {append cmd " -t "}
 append cmd $midi(abc_open)
-#puts "cmd = $cmd"
 
 catch {eval $cmd} exec_output
-puts "output file = [get_output_xml_filename $exec_output]"
+set outputfile  [get_output_xml_filename $exec_output]
 
 append exec_out $cmd
 append exec_out \n$exec_output
 
 .abc.abc2xml.msg config -text "created file in $directory"
-set outxml $directory/[file tail $midi(abc_open)]
-set outxml [string range $outxml 0 end-3]xml
-.abc.abc2xml.musc configure -command "muscore $outxml"
+#set outxml $directory/[file tail $midi(abc_open)]
+#set outxml [string range $outxml 0 end-3]xml
+#.abc.abc2xml.musc configure -command "muscore $outxml "
+.abc.abc2xml.musc configure -command "muscore [list $outputfile]" 
+
 pack .abc.abc2xml.musc 
 }
 
@@ -28472,7 +28478,7 @@ muscore $runabcpath/X.xml
 proc muscore {myfile} {
 global midi
 global exec_out
-set cmd "exec [list $midi(path_muscore)] $myfile"
+set cmd "exec [list $midi(path_muscore)] [list $myfile] &"
 catch {eval $cmd} exec_output
 append exec_out \n\n$cmd
 }
