@@ -33,7 +33,7 @@ exec wish8.6 "$0" "$@"
 
 
 set runabc_version 2.394
-set runabc_date "(July 12 2026 19:16)"
+set runabc_date "(July 13 2026 08:01)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -6838,11 +6838,6 @@ button $w.4.1 -text "reformat" -font $df\
 pack $w.4.1 -side left
 pack $w.4
 button $w.5.1 -text edit -font $df -command "call_editor X.tmp"
-#        -command {startup_tcl_abc_edit 0
-#                  set tunestring [return_selected_tune]
-#                  Refactor::generate_tunepieces $tunestring
-#                  Refactor::reconstitute}
-#button $w.5.2 -text save -font $df
 button $w.5.3 -text "to abctranscriptiontools" \
         -command {run_abctranscription_tools $abcstring} -font $df
 pack $w.5.1 $w.5.3 -side left
@@ -20407,44 +20402,9 @@ namespace eval Refactor {
     }
     
     
-    # The functions reconstitute and reconstituteText are very similar;
-    # In fact reconstituteText was derived from reconstitute. Both
-    # rely on similar functions reconstitute_pieces_voice_interleaved
-    # and reconstituteText_pieces_voice_interleaved if we desire to
-    # to produce a voice interleaved file, and reconstitute_pieces_
-    # separate_voices and reconstituteText_pieces_separate_voices if
-    # we desire to produce a file with the voices occurring separately.
-    # The purposes of these functions are to recover the abc file
-    # from the information in the array tunepieces which breaks up
-    # the file into separate bars addressed by bar number of 
-    # voice and bar numbers.
-    # The main difference between the functions is that the
-    # ones without "Text" are designed to support the MultiVoicedEditor,
-    # while the latter are designed to produce a string suitable for
-    # the abctranscription_tools.
-    proc reconstitute {} {
-        global midi
-        global abctxtw
-        global barsperline barsperstaff
-	global do_reconstitute
-        puts "running reconstitute"
-	set do_reconstitute 1
-        set barsperline $midi(midibpl)
-        set barsperstaff $midi(midibps)
-        if {$barsperline > $barsperstaff} {
-            .abc.reformat.mesg configure -text "barsperline > barsperstaff. adjusting."
-            set barsperline $barsperstaff
-            set midi(midibpl) $barsperline
-            }
-        $abctxtw delete 1.0 end
-        if {$midi(interleave)} {
-            reconstitute_pieces_voice_interleaved
-        } else {
-            reconstitute_pieces_separate_voices
-        }
-        tag_text $abctxtw
-	$abctxtw edit reset
-    }
+    # The functions reconstitute, reconstitute_pieces_voice_interleaved
+    # and reconstituteText_pieces_voice_interleaved have been removed
+    # on 2026.07.13.
 
     proc reconstituteText {} {
         global midi
@@ -20487,86 +20447,6 @@ namespace eval Refactor {
    }
 
  
-    proc reconstitute_pieces_voice_interleaved {} {
-        global abctxtw
-        global tunepieces
-        global nvoices nbars nbarsv voicelist
-        global barsperline barsperstaff
-	global midi
-        set fieldpat {^L:|^M:|^K:|^Q:|^w:|V:}
-        
-        #puts "barsperline = $barsperline barsperstaff = $barsperstaff"
-
-        if {$barsperline < 1} {set barsperline 1}
-        
-        #check_nbarsv
-        $abctxtw insert end $tunepieces(head) head
-        # $abctxtw tag bind head <ButtonPress-1> [list barclick head]
-        if {$nvoices < 1} {.abc.reformat.mesg configure -text "no voices are present"
-            reconstitute_pieces_separate_voices
-            return
-        }
-        if {[info exist tunepieces(0-0)]} {
-            $abctxtw insert end $tunepieces(0-0)}
-        set i 0
-        while {$i < $nbars} {
-            for {set n 0} {$n < $nvoices} {incr n} {
-                set voice [lindex $voicelist $n]
-                if {$i >= $nbarsv($voice)} continue
-                # each line should have a voice command.
-                #puts "$voice-$i --> $tunepieces($voice-$i)"
-
-
-                set lastchar [$abctxtw get "end -2 chars"]
-                #puts "lastchar = $lastchar i = $i"
-                if {$lastchar != "\n"} {
-                        $abctxtw insert end "\n"}
-                if {$midi(inline_voice)} {
-			$abctxtw insert end "\[V:$voice\] "} else {
-                        $abctxtw insert end "V:$voice \n"}
-                set lastchar  "\n"
-                set barsinline 0
-                for {set j 0} {$j < $barsperstaff} {incr j} {
-                    set k [expr $i + $j]
-                    #puts "voice = $voice  k = $i + $j $tunepieces(x-$voice-$k)"
-                    if {$k >= $nbarsv($voice)} break
-
-                    # put any comments or field commands on a new line
-                    if {[info exist tunepieces(x-$voice-$k)]} {
-                        set t $tunepieces(x-$voice-$k)    
-                        set t [strip_out_V_command $t]
-                        #puts "k = $k $tunepieces($voice-$k) $tunepieces(x-$voice-$k)"
-                        if {[string length $t] > 0} { 
-                           if {$lastchar != "\n"} {
-                               if {$k % $barsperstaff != 0} {
-                                  $abctxtw insert end "\\\n"
-                                  } else {
-                                  if {$n == 0} {$abctxtw insert end " % [expr $i +$j + $midi(startbar) -1]"}
-                                  $abctxtw insert end "\n"}
-                               set lastchar "\n"}
-                           $abctxtw insert end $t x-$voice-$k
-                           $abctxtw tag bind x-$voice-$k <ButtonPress-1> [list barclick x-$voice-$k]
-                        }
-                    }
-		$abctxtw insert end $tunepieces($voice-$k) $voice-$k
-                incr barsinline
-                if {[expr $j + 1] >= $barsperstaff} continue
-                if {$barsinline >= $barsperline} {
-                     $abctxtw insert end "\\\n"
-                     set barsinline 0
-                     }
-                }
-                if {$n == 0} {
-                   if {$midi(reformat_bars)} {
-		      $abctxtw insert end " % [expr $i +$j + $midi(startbar) -1]"}
-                   $abctxtw insert end "\n"
-                   set barsinline 0 
-                   }
-            }
-            
-            incr i $barsperstaff
-        }
-    }
     
     proc reconstituteText_pieces_voice_interleaved {} {
         global abctxtw
@@ -20650,137 +20530,6 @@ namespace eval Refactor {
     return $abcstring
     }
     
-    proc reconstitute_pieces_separate_voices {} {
-        global abctxtw
-        global tunepieces
-        global nvoices nbars voicelist
-        global barsperline barsperstaff
-	global midi
-        set fieldpat {^L:|^M:|^K:|^Q:|^w:}
-        $abctxtw delete 1.0 end
-        $abctxtw insert end $tunepieces(head) head
-        #        $abctxtw tag bind head <ButtonPress-1> [list barclick head]
-        # we ignore all V: commands in the tunepieces() except for
-        # the first one belonging to the voice.
-
-        set barsinline 0
-        set barsinstaff 0
-        set newline 1
-        if {$nvoices >= 1} {
-            # for multivoiced tunes
-
-            for {set n 0} {$n <= $nvoices} {incr n} {
-                set firstvoicecmd 1
-                set voice [lindex $voicelist $n]
-                for {set i 0} {$i < $nbars} {incr i} {
-                    if {![info exist tunepieces($voice-$i)]} continue
-                    #puts "newline = $newline"
-                    if {[info exist tunepieces(x-$voice-$i)]} {
-                        set t $tunepieces(x-$voice-$i) 
-                        if {[string first "V:" $t] != -1 && $firstvoicecmd == 1} {
-                            if {$newline == 0} {
-                                $abctxtw insert end "\n"
-                                }
-                            $abctxtw insert end $t x-$voice-$i
-                            set firstvoicecmd 0
-                            set barsinstaff 0
-                       } else {
-                            set t [strip_out_V_command $t]
-                            if {[string length $t] > 1}  {
-                                if {$newline == 0} {
-                                    $abctxtw insert end "\n"
-                                    }
-                                $abctxtw insert end $tunepieces(x-$voice-$i) x-$voice-$i
-                                set barsinline 0
-                                set newline 1
-                            }
-                      }
-
-                       #puts "x-$voice-$i $tunepieces(x-$voice-$i) $barsinline $barsinstaff"
-                       set newline 1
-                       }
-                    
-                    $abctxtw insert end $tunepieces($voice-$i) $voice-$i
-                    set newline 0
-                    incr barsinline
-                    incr barsinstaff
-                    #puts "$voice-$i $tunepieces($voice-$i) $barsinline $barsinstaff"
-                    
-
-                    if {$barsperstaff == $barsinstaff && $newline == 0 } {
-			if {$midi(reformat_bars)} {
-                           $abctxtw insert end " % [expr $i + $midi(startbar)]\n"
-                           } else {
-                           $abctxtw insert end "\n"
-                           }
-                        set barsinline 0
-                        set barsinstaff 0
-                        set newline 1
-                        }
-                    if  {$barsinline == $barsperline} {
-                         $abctxtw insert end "\\\n"
-                         set barsinline 0
-                         set newline 1 
-                        }
-
-                    if {$barsinline != 0} {set newline 0}
-                    }
-                #$abctxtw insert end "\n"
-                }
-           } else {
-
-            # for tunes with no voices
-            set newline 1
-            for {set i 0} {$i < $nbars} {incr i} {
-
-                if {![info exist tunepieces(0-$i)]} continue
-
-                if {[info exist tunepieces(x-0-$i)]} {
-                    if {!$newline} {
-                      $abctxtw insert end "\n"
-                      set newline 1
-                      }
-                    $abctxtw insert end $tunepieces(x-0-$i) x-0-$i
-                    }
-
-                set firstchar [string index $tunepieces(0-$i) 0]
-                set lastchar [$abctxtw get "end -2 chars"]
-                if {$firstchar == "%" && $lastchar != "\n"} {
-                    $abctxtw insert end "\n"
-                    }
-                # put any field commands on a new line
-                set success [regexp -indices  $fieldpat $tunepieces(0-$i) location]
-                if {$success} {
-                    set f  [lindex $location 0]} else {
-                    set f -1}
-                if {$f == 0}  {$abctxtw insert end "\n"
-                } else {
-                       $abctxtw insert end $tunepieces(0-$i) 0-$i
-                       incr barsinline
-                       incr barsinstaff
-                       set newline 0
-                       }
-
-                if {$barsperstaff == $barsinstaff && $newline == 0 } {
-			if {$midi(reformat_bars)} {
-                           $abctxtw insert end " % [expr $i + $midi(startbar)]\n"
-                           } else {
-                           $abctxtw insert end "\n"
-                           }
-                        set barsinline 0
-                        set barsinstaff 0
-                        set newline 1
-                        }
-               
-                if {$barsinline == $barsperline} {$abctxtw insert end "\\\n"
-                    set barsinline 0
-                    set newline 1}
-            }
-            set lastchar [$abctxtw get "end -2 chars"]
-            if {$lastchar != "\n"} {$abctxtw insert end "\n"
-                incr nlines}
-        }
-    }
     
     proc reconstituteText_pieces_separate_voices {} {
         global abctxtw
@@ -20871,7 +20620,7 @@ namespace eval Refactor {
             for {set i 0} {$i < $nbars} {incr i} {
 
                 if {![info exist tunepieces(0-$i)]} continue
-                puts "tunepieces(0-$i) = $tunepieces(0-$i) barsinline = $barsinline"
+                #puts "tunepieces(0-$i) = $tunepieces(0-$i) barsinline = $barsinline"
 
                 if {[info exist tunepieces(x-0-$i)]} {
                     if {!$newline} {
