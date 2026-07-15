@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.394
-set runabc_date "(July 13 2026 08:01)"
+set runabc_version 2.395
+set runabc_date "(July 15 2026 14:53)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1561,7 +1561,7 @@ $w.type add command -label "AbcTranscriptionTools"\
         -command {startup_abctranscription_tools} -font $df
 $w.type add command -label "AbcTranscriptionTools*"\
         -command {startup_abctranscription_tools_with_midi} -font $df
-$w.type add command -label "Export to muscore"\
+$w.type add command -label "Export to mscore"\
         -command {export2muscore} -font $df
         
 
@@ -6838,9 +6838,10 @@ button $w.4.1 -text "reformat" -font $df\
 pack $w.4.1 -side left
 pack $w.4
 button $w.5.1 -text edit -font $df -command "call_editor X.tmp"
+button $w.5.2 -text display -font $df -command "display_tunes X.tmp"
 button $w.5.3 -text "to abctranscriptiontools" \
         -command {run_abctranscription_tools $abcstring} -font $df
-pack $w.5.1 $w.5.3 -side left
+pack $w.5.1 $w.5.2 $w.5.3 -side left
 
 label $w.mesg -text "" -font $df
 pack $w.mesg
@@ -20316,8 +20317,6 @@ namespace eval Refactor {
         myputs  $out_fd $tunepieces(head)
         set barsminus1 [expr $barsperline - 1]
         # cause problem for plain abc tune with no voices
-        #if {[info exist tunepieces(0-0)]} {
-        #   myputs  $out_fd $tunepieces(0-0)}
         if {$nvoices >= 1} {
             # for multivoiced tunes
             for {set n 0} {$n < $nvoices} {incr n} {
@@ -20456,20 +20455,17 @@ namespace eval Refactor {
 	global midi
         set fieldpat {^L:|^M:|^K:|^Q:|^w:|V:}
         
-        #puts "in reconstituteText_pieces_voice_interleaved"
 
         if {$barsperline < 1} {set barsperline 1}
         
-        #check_nbarsv
-        #puts -nonewline $tunepieces(head) 
         set abcstring $tunepieces(head)
         if {$nvoices < 1} {puts "no voices are present"
             reconstituteText_pieces_separate_voices
             return
         }
         if {[info exist tunepieces(0-0)]} {
-            #puts -nonewline $tunepieces(0-0)
-            append abcstring $tunepieces(0-0)}
+            append abcstring $tunepieces(0-0)
+            }
         set i 0
         while {$i < $nbars} {
             for {set n 0} {$n < $nvoices} {incr n} {
@@ -20477,49 +20473,45 @@ namespace eval Refactor {
                 if {$i >= $nbarsv($voice)} continue
 
                 if {$midi(inline_voice)} {
-			#puts -nonewline "\[V:$voice\] "
-                        append abcstring "\[V:$voice\] "} else {
-                        #puts -nonewline "V:$voice \n"
+                        append abcstring "\[V:$voice\] "
+                        set lastchar ""
+                        } else {
                         append abcstring "V:$voice \n"
+                        set lastchar r
                         }
-                set lastchar  "\n"
                 set barsinline 0
                 for {set j 0} {$j < $barsperstaff} {incr j} {
                     set k [expr $i + $j]
                     if {$k >= $nbarsv($voice)} break
 
-                    # put any comments or field commands on a new line
                     if {[info exist tunepieces(x-$voice-$k)]} {
                         set t $tunepieces(x-$voice-$k)    
                         set t [strip_out_V_command $t]
                         if {[string length $t] > 0} { 
-                           if {$lastchar != "\n"} {
+                           if {$lastchar != r} {
                                if {$k % $barsperstaff != 0} {
-                                  #puts -nonewline "\\\n"
                                   append abcstring \\\n
+                                  set lastchar r
                                   } else {
-                                  #if {$n == 0} {puts -nonewline " % [expr $i +$j + $midi(startbar) -1]"}
-                                  #puts -nonewline "\n"}
-                                 #set lastchar "\n"}
-                           #puts -nonewline $t 
-                           append abcstring $t
-                        }
+       #   }} This line is necessary to balance the braces in a comment.
+                                  append abcstring $t
+                                  set lastchar ""
+                                 }
                     }
-		#puts -nonewline $tunepieces($voice-$k) 
                 append abcstring $tunepieces($voice-$k)
+                set lastchar ""
                 incr barsinline
                 if {[expr $j + 1] >= $barsperstaff} continue
                 if {$barsinline >= $barsperline} {
                      #puts -nonewline "\\\n"
                      append abcstring \\\n
+                     set lastchar r
                      set barsinline 0
                      }
                 }
-                if {$n == 0} {
-                   #if {$midi(reformat_bars)} {
-		   #   puts " % [expr $i +$j + $midi(startbar) -1]"}
-                   #puts -nonewline "\n"
+                if {$n <= $nvoices } {
                    append abcstring \n
+                   set lastchar "r"
                    set barsinline 0 
                    }
             }
@@ -20538,16 +20530,10 @@ namespace eval Refactor {
         global barsperline barsperstaff
 	global midi
         set fieldpat {^L:|^M:|^K:|^Q:|^w:}
-        #puts "in reconstituteText_pieces_separate_voices"
-        #puts -nonewline $tunepieces(head)
         set abcstring $tunepieces(head)
-        #        $abctxtw tag bind head <ButtonPress-1> [list barclick head]
-        # we ignore all V: commands in the tunepieces() except for
-        # the first one belonging to the voice.
         set barsinline 0
         set barsinstaff 0
         set newline 1
-        #puts "tunepieces = [array get tunepieces]"
         if {$nvoices >= 1} {
             # for multivoiced tunes
             for {set n 0} {$n <= $nvoices} {incr n} {
@@ -20558,16 +20544,12 @@ namespace eval Refactor {
                 for {set i 0} {$i < $nbars} {incr i} {
                     #puts "$voice-$i"
                     if {![info exist tunepieces($voice-$i)]} continue
-                    #puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline"
                     if {[info exist tunepieces(x-$voice-$i)]} {
                         set t $tunepieces(x-$voice-$i) 
-                        #puts "$t barsinline = $barsinline barsinstaff = $barsinstaff"
                         if {[string first "V:" $t] != -1 && $firstvoicecmd == 1} {
                             if {$newline == 0} {
-                                #puts "\n"
                                 append abcstring "\n"
                                 }
-                            #puts -nonewline "$t"
                             append abcstring $t
                             set firstvoicecmd 0
                             set barsinstaff 0
@@ -20575,10 +20557,8 @@ namespace eval Refactor {
                             set t [strip_out_V_command $t]
                             if {[string length $t] > 1}  {
                                 if {$newline == 0} {
-                                    #puts -nonewline "\n"
                                     append abcstring \n
                                     }
-                                #puts -nonewline "$tunepieces(x-$voice-$i)"
                                 append abcstring $tunepieces(x-$voice-$i)
                                 set barsinline 0
                                 set newline 1
@@ -20588,8 +20568,6 @@ namespace eval Refactor {
                        set newline 1
                        }
                     
-                    #puts -nonewline "$tunepieces($voice-$i)"
-                    #puts "$tunepieces($voice-$i) = $tunepieces($voice-$i) barsinline = $barsinline barsinstaff = $barsinstaff"
                     append abcstring $tunepieces($voice-$i)
                     set newline 0
                     incr barsinline
@@ -20600,10 +20578,9 @@ namespace eval Refactor {
                         set barsinline 0
                         set barsinstaff 0
                         append abcstring \n
-                        set newline 0
+                        set newline 1
                         }
                     if  {$barsinline == $barsperline} {
-                         #puts -nonewline "\\\n"
                          append abcstring \\\n
                          set barsinline 0
                          set newline 1 
@@ -20611,7 +20588,6 @@ namespace eval Refactor {
 
                     if {$barsinline != 0} {set newline 0}
                     }
-                #$abctxtw insert end "\n"
                 }
            } else {
 
@@ -20620,24 +20596,15 @@ namespace eval Refactor {
             for {set i 0} {$i < $nbars} {incr i} {
 
                 if {![info exist tunepieces(0-$i)]} continue
-                #puts "tunepieces(0-$i) = $tunepieces(0-$i) barsinline = $barsinline"
 
                 if {[info exist tunepieces(x-0-$i)]} {
                     if {!$newline} {
-                      #puts -nonewline "\n"
                       append abcstring \n
                       set newline 1
                       }
-                    #puts "$tunepieces(x-0-$i)"
                     append abcstring $tunepieces(x-0-$i)
                     }
 
-                #set firstchar [string index $tunepieces(0-$i) 0]
-                #set lastchar [$abctxtw get "end -2 chars"]
-                #if {$firstchar == "%" && $lastchar != "\n"} {
-                #    puts -nonewline "\n"
-                #    }
-                # put any field commands on a new line
                 set success [regexp -indices  $fieldpat $tunepieces(0-$i) location]
                 if {$success} {
                     set f  [lindex $location 0]} else {
@@ -20656,8 +20623,6 @@ namespace eval Refactor {
 			if {$midi(reformat_bars)} {
                            #puts -nonewline " % [expr $i + $midi(startbar)]\n"
                            append abcstring " % [expr $i + $midi(startbar)]\n"
-                           } else {
-                           #puts "\n"
                            }
                         set barsinline 0
                         set barsinstaff 0
@@ -20670,14 +20635,11 @@ namespace eval Refactor {
                     set barsinline 0
                     set newline 1}
             }
-            #set lastchar [$abctxtw get "end -2 chars"]
-            #if {$lastchar != "\n"} {$abctxtw insert end "\n"
-            #    incr nlines}
         }
-    #puts "\n\nabcstring = \n$abcstring"
     return $abcstring
     }
 
+# This code is used by the TclMultiVoice editor !!
     proc refactor_textcontents {} {
         global abctxtw
         global alreadyloaded
@@ -28168,6 +28130,10 @@ global exec_out
 set sel [title_selected]
 scan $sel "I%x" skip
 incr skip -1
+if {![file exist $midi(path_abc2xml)]} {
+   tk_messageBox  -message "cannot find $midi(path_abc2xml)" -type ok
+   return
+  }
 if {[string range $midi(path_abc2xml) end-1 end] == "py"} {
    set cmd "exec $midi(Python) $midi(path_abc2xml) -m $skip 1 -o "
  } else {
@@ -28258,6 +28224,10 @@ set midi(xml_library) $inputdir
 set newfile "$midi(to_abc_folder)/[file tail $inputfile]"
 set newfile "[file rootname $newfile].abc"
 #puts "newfile = $newfile"
+if {![file exist $midi(path_xml2abc)]} {
+   tk_messageBox -message "cannot find $midi(path_xml2abc)" -type ok
+   return
+   }
 if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
   set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -o $midi(to_abc_folder)  "
   } else {
@@ -28395,11 +28365,12 @@ global midi
 toplevel .xmllibrary
 set x .xmllibrary
 frame $x.top
+button $x.top.mscore -text mscore -font $df
 button $x.top.b -text browse -font $df -command {
    set midi(xml_library) [tk_chooseDirectory -title "Choose xml/mxl folder" -initialdir $midi(xml_library)]
    load_xml_library
    } 
-pack $x.top.b -side left
+pack $x.top.b $x.top.mscore -side left
 frame $x.list
 pack $x.top $x.list -side top
 listbox $x.list.box -width 50 -bg #f4ece0 \
@@ -28413,6 +28384,7 @@ pack $x.list.ysbar -side right   -fill y
 pack $x.list.box -side left -expand 1 -fill both
 #set midi(xml_library) "/home/seymour/library-master/scores"
 load_xml_library
+.xmllibrary.top.mscore configure -command {muscore $midi(xml_library)/[selected_xml]}
 }
 
 proc load_xml_library {} {
