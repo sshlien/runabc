@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.395
-set runabc_date "(July 15 2026 14:53)"
+set runabc_version 2.396
+set runabc_date "(July 17 2026 16:11)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -1105,8 +1105,9 @@ proc midi_init {} {
     set midi(Python) ""
     #midi2xml options
     set midi(xmlu) 0
-    set midi(xmlm) 1
     set midi(xmlx) 0
+    set midi(xmlt) 0
+    set midi(xmlm) 1
     set midi(xmlf) 1
     set midi(xmlr) 0
     set midi(xmlz) 0
@@ -28194,7 +28195,10 @@ proc muscore {myfile} {
 global midi
 global exec_out
 set cmd "exec [list $midi(path_muscore)] [list $myfile] &"
+tk busy hold .
+update
 catch {eval $cmd} exec_output
+tk busy forget .
 append exec_out \n\n$cmd
 }
 
@@ -28234,6 +28238,7 @@ if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
   set cmd "exec $midi(path_xml2abc) -o $midi(to_abc_folder) "
   }
 if {$midi(xmlb) > 0} {append cmd " -b $midi(xmlb) "}
+if {$midi(xmlm) > 0} {append cmd " -m $midi(xmlm) "}
 #puts "cmd = $cmd"
 append cmd [list $inputfile]
 
@@ -28279,38 +28284,51 @@ pack .abc.xml2abc.0
 label .abc.xml2abc.0.1 -text "xml2abc configuration" -font $df
 button .abc.xml2abc.0.2 -text help -font $df -command help_xml2abc
 pack .abc.xml2abc.0.1 .abc.xml2abc.0.2 -side left
-set xml .abc.xml2abc.1
-frame $xml
-checkbutton $xml.u -text "simple repeats" -variable midi(xmlu) -font $df
-menubutton $xml.m -text "%%MIDI options" -font $df -menu $xml.m.type
-menu $xml.m.type -tearoff 0
-$xml.m.type add radiobutton -label "only %%MIDI program" -variable midi(xmlm) -value 1 -font $df
-$xml.m.type add radiobutton -label "all %%MIDI commands" -variable midi(xmlm) -value 2 -font $df
-$xml.m.type add radiobutton -label "no MIDI commands" -variable midi(xmlm) -value 0 -font $df
-radiobutton $xml.x -text "line breaks" -font $df -variable midi(xmlx) -font $df
+
 frame .abc.xml2abc.2
 pack .abc.xml2abc.2
-button .abc.xml2abc.2.but -text "save output in" -font $df -command {
+button .abc.xml2abc.2.but -text "output to" -font $df -command {
    set midi(to_abc_folder) [tk_chooseDirectory -title "Choose abc folder"]}
-entry .abc.xml2abc.2.ent -width 50 -font $df -textvariable midi(to_abc_folder)
+entry .abc.xml2abc.2.ent -width 60 -font $df -textvariable midi(to_abc_folder)
 pack .abc.xml2abc.2.but .abc.xml2abc.2.ent -side left
+
+set xml .abc.xml2abc.1
+frame $xml
+pack $xml
+checkbutton $xml.u -text "repeats translation" -variable midi(xmlu) -font $df
+checkbutton $xml.x -text "line breaks" -font $df -variable midi(xmlx) -font $df
+checkbutton $xml.t -text "percussion translation" -font $df -variable midi(xmlt)
+pack $xml.u $xml.x $xml.t -side left
+
+set xml .abc.xml2abc.m
+frame $xml
+pack $xml
+label $xml.l  -text "%%MIDI options" -font $df
+radiobutton $xml.1  -text "only programs" -variable midi(xmlm) -value 1 -font $df
+radiobutton $xml.2  -text "all commands" -variable midi(xmlm) -value 2 -font $df
+radiobutton $xml.0  -text "no commands" -variable midi(xmlm) -value 0 -font $df
+pack $xml.l $xml.1 $xml.2 $xml.0 -side left
+
 button .abc.xml2abc.go -text go -command run_xml2abc -font $df
-pack $xml.u $xml.m $xml.x -side left
 pack .abc.xml2abc.0 
 pack $xml 
 
-menubutton $xml.b -text "bars/per line" -font $df -menu $xml.b.type
-menu $xml.b.type -tearoff 0
-$xml.b.type add radiobutton -label "default" -variable midi(xmlb) -value 0 -font $df
-$xml.b.type add radiobutton -label "1/line" -variable midi(xmlb) -value 1 -font $df
-$xml.b.type add radiobutton -label "2/line" -variable midi(xmlb) -value 2 -font $df
-$xml.b.type add radiobutton -label "3/line" -variable midi(xmlb) -value 3 -font $df
-$xml.b.type add radiobutton -label "4/line" -variable midi(xmlb) -value 4 -font $df
-$xml.b.type add radiobutton -label "5/line" -variable midi(xmlb) -value 5 -font $df
-$xml.b.type add radiobutton -label "6/line" -variable midi(xmlb) -value 6 -font $df
-$xml.b.type add radiobutton -label "7/line" -variable midi(xmlb) -value 7 -font $df
-$xml.b.type add radiobutton -label "8/line" -variable midi(xmlb) -value 8 -font $df
-pack $xml.b
+set xml .abc.xml2abc.b
+frame $xml
+pack $xml -side top
+label $xml.l -text "bars/line" -font $df
+radiobutton $xml.0 -text "default" -variable midi(xmlb) -value 0 -font $df
+radiobutton $xml.1 -text 1 -variable midi(xmlb) -value 1 -font $df
+radiobutton $xml.2 -text 2 -variable midi(xmlb) -value 2 -font $df
+radiobutton $xml.3 -text 3 -variable midi(xmlb) -value 3 -font $df
+radiobutton $xml.4 -text 4 -variable midi(xmlb) -value 4 -font $df
+radiobutton $xml.5 -text 5 -variable midi(xmlb) -value 5 -font $df
+radiobutton $xml.6 -text 6 -variable midi(xmlb) -value 6 -font $df
+radiobutton $xml.7 -text 7 -variable midi(xmlb) -value 7 -font $df
+radiobutton $xml.8 -text 8 -variable midi(xmlb) -value 8 -font $df
+pack $xml.l $xml.0 $xml.1 $xml.2 $xml.3 $xml.4 $xml.5 $xml.6 $xml.7 $xml.8 -side left
+
+pack $xml
 
 pack .abc.xml2abc.go
 label .abc.xml2abc.msg -text "" -font $df
@@ -28333,9 +28351,9 @@ pack .abc.abc2xml.0.1 .abc.abc2xml.0.2 -side left -anchor w
 
 frame .abc.abc2xml.5
 pack .abc.abc2xml.5
-button .abc.abc2xml.5.but -text "save output in" -font $df -command {
+button .abc.abc2xml.5.but -text "output to" -font $df -command {
    set midi(to_xml_folder) [tk_chooseDirectory -title "Choose abc folder"]}
-entry .abc.abc2xml.5.ent -width 50 -font $df -textvariable midi(to_xml_folder)
+entry .abc.abc2xml.5.ent -width 60 -font $df -textvariable midi(to_xml_folder)
 pack .abc.abc2xml.5.but .abc.abc2xml.5.ent -side left
 
 checkbutton .abc.abc2xml.1 -text "show whole measure rests" -font $df -variable  midi(xlmr)
