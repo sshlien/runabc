@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.396
-set runabc_date "(July 17 2026 16:11)"
+set runabc_version 2.399
+set runabc_date "(July 26 2026 08:04)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -584,7 +584,7 @@ proc check_integrity {} {
         set msg "You are running runabc.tcl under the Unix operating system.\n"
         }
     append msg "runabc is running from $execpath\n"
-    append msg "runabc created the folders $runabcpath and this is where it\
+    append msg "runabc created the folder $runabcpath and this is where it\
 will store internal files it needs to read and write. In particular, runabc.ini is found there.\n"
     set abcmidi 0
     set result [check_file path_abc2midi]
@@ -623,6 +623,7 @@ will store internal files it needs to read and write. In particular, runabc.ini 
         set abcmidi 1
     }
 
+
     set result [check_file path_gs]
     if {[string first "not found" $result] >= 0} {
         append msg "ghostscript was not found at: $midi(path_gs) \n"
@@ -630,18 +631,10 @@ will store internal files it needs to read and write. In particular, runabc.ini 
     }
 
     if {$abcmidi == 1 && $tcl_platform(platform) == "windows"} {
-        append msg "\nYou can find the abcmidi_win32 executables for windows on\
-                http://ifdo.ca/~seymour/runabc/top.html\n\
-                You should put these executables in the same folder where runabc is found.\
-                If the executables are in a different folder you need to specify their location\
-                by going to the 'Options/ABC executables' menu item (wrench icon).\n"
-        set result [check_file path_abcm2ps]
-        if {[string first "not found" $result] >= 0} {
-            append msg "\nabcm2ps was not found at $midi(path_abcm2ps) \n"
-            append msg "\nIt is recommended that you use abcm2ps rather than yaps.\
-                    abcm2ps is also included with the abcmidi_win32 executables that you can\
-                    download from http://ifdo.ca/~seymour/runabc/top.html.\n"
-        }
+        append msg "\nYou can find the abcmidi executables for all operating\
+ systems on https://abcplus.sourceforge.net/
+                Go to the 'Options/ABC executables' menu item (wrench icon).\n
+  and set the link to these files"
 
         if {[file exist "c:/Program Files/gs/"] != 1} {
             set prtmsg 1
@@ -656,8 +649,8 @@ will store internal files it needs to read and write. In particular, runabc.ini 
                     already on your system, then you need to indicate their location by\
                     going to the 'Options/ABC executables' menu item (wrench icon) and specifying\
                     their location. If you do not have the executables, you will need to\
-                    build them from the source code which you can find on\
-                    http://ifdo.ca/~seymour/runabc/top.html or on sourceforge.net.\n"}
+                    build them from the source code or find the executables on\
+                    https://abcplus.sourceforge.net/\n"}
         
         set result [check_file path_abcm2ps]
         if {[string first "not found" $result] >= 0} {
@@ -705,6 +698,13 @@ proc check_file {execname} {
 }
 
 
+proc check_python {} {
+set cmd "exec python3 --version"
+catch {eval $cmd} result
+return $result
+}
+
+
 # default values for options
 proc midi_init {} {
     global midi df sf dfreset tocf
@@ -736,42 +736,43 @@ proc midi_init {} {
     set midi(path_yaps) yaps
     set midi(path_otherps) jcabc2ps
     if {$tcl_platform(platform) == "windows"} {
-        set midi(path_yaps) yaps.exe
-        set midi(path_abcm2ps) abcm2ps.exe
-        set midi(path_abcmatch) abcmatch.exe
-        set midi(path_abc2midi) abc2midi.exe
-        set midi(path_abc2abc) abc2abc.exe
-        set midi(path_midi2abc) midi2abc.exe
-        set midi(path_midicopy) midicopy.exe
-        set midi(path_midistats) midistats.exe
+        set midi(path_yaps) ""
+        set midi(path_abcm2ps) ""
+        set midi(path_abcmatch) ""
+        set midi(path_abc2midi) ""
+        set midi(path_abc2abc) ""
+        set midi(path_midi2abc) ""
+        set midi(path_midicopy) ""
+        set midi(path_midistats) ""
         set midi(path_ABCarus) C:/Users/fy733/AppData/Local/Programs/abc-electron-proto/ABCarus.exe
-        set midi(Python) ""
-        set midi(path_abc2xml) "choosefile.exe"
-        set midi(path_xml2abc) "choosefile.exe"
+        set midi(Python) python3
+        set midi(path_abc2xml) ""
+        set midi(path_xml2abc) ""
         set midi(path_muscore) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
-	set midi(path_gs) ""
-           
+	set midi(path_gs) "C:/Program Files/gs/gs10.07.1/bin/gswin64.exe"
+        set midi(path_editor) "C:/Windows/notepad.exe"
         set midi(path_midiplayer_1) "C:/Program Files/Windows Media Player/wmplayer.exe"
-        set midi(path_midiplayer_2) "C:/Program Files (x86)/Winamp/Winamp.exe"
-        set midi(path_midiplayer_3) ""
-        set midi(path_midiplayer_4) ""
+        set midi(path_midiplayer_2) "C:/Program Files/Notation_5/Player_5/Player.exe"
+        set midi(path_midiplayer_3) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
+        set midi(path_midiplayer_4) "C:/Program Files/MPC-BE/mpc-be64.exe"
         set midi(midiplayer_1_options) "/play /close"
         set midi(midiplayer_2_options) ""
         set midi(midiplayer_3_options) ""
         set midi(midiplayer_4_options) ""
         set midi(path_internet) "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
        } else {        #not Windows PC
+        set midi(path_editor) ""
         set midi(path_yaps) yaps
-        set midi(path_abcm2ps) abcm2ps
-        set midi(path_abcmatch) abcmatch
-        set midi(path_abc2midi) abc2midi
-        set midi(path_abc2abc) abc2abc
-        set midi(path_midi2abc) midi2abc
-        set midi(path_midicopy) midicopy
-        set midi(path_midistats) midistats
-        set midi(path_ABCarus) ABCarus-x86_64.AppImage
-        set midi(path_abc2xml) choosePythonFile
-        set midi(path_xml2abc) choosePythonFile
+        set midi(path_abcm2ps) ""
+        set midi(path_abcmatch) ""
+        set midi(path_abc2midi) ""
+        set midi(path_abc2abc)  ""
+        set midi(path_midi2abc) ""
+        set midi(path_midicopy) ""
+        set midi(path_midistats) ""
+        set midi(path_ABCarus) ""
+        set midi(path_abc2xml) ""
+        set midi(path_xml2abc) ""
         set midi(path_muscore) /usr/bin/mscore
         set midi(path_midiplayer_1) timidity
         set midi(path_midiplayer_2) ""
@@ -848,7 +849,6 @@ proc midi_init {} {
     set midi(butrelief) raised
     set midi(butbg) "light grey"
 
-    set midi(path_editor) ""
     set midi(player) 0
     set midi(midiplayer_1_prot) 0
     set midi(midiplayer_2_prot) 0
@@ -904,7 +904,7 @@ proc midi_init {} {
     set midi(easyABCmode) 0 
     
     # ab2ps default parameters
-    set midi(ps_creator) abcm2ps
+    set midi(ps_creator) abc2svg
     set midi(ps_scale) 0.8
     set midi(ps_width) 500
     set midi(ps_lmargin) 20
@@ -1102,7 +1102,6 @@ proc midi_init {} {
     #save midi files
     set midi(namelen) 16
 
-    set midi(Python) ""
     #midi2xml options
     set midi(xmlu) 0
     set midi(xmlx) 0
@@ -1113,7 +1112,8 @@ proc midi_init {} {
     set midi(xmlz) 0
     set midi(xmlt) 0
     set midi(xmlb) 4
-
+    set midi(xml_aparam) ""
+    set midi(xml_xparam) ""
     set midi(xml_library)  ""
     set midi(to_abc_folder) ""
     set midi(to_xml_folder) ""
@@ -1242,7 +1242,6 @@ if {![file exists runabc.ini]} {
       set midi(path_midicopy) [file join $install_folder midicopy.exe]
       set midi(path_midistats) [file join $install_folder midistats.exe]
       set midi(path_yaps) [file join $install_folder yaps.exe]
-      set midi(path_gs) ""
   } elseif {$tcl_platform(platform) == "unix"} {
       find_linux_executables  
        }
@@ -1830,6 +1829,10 @@ menu .abc.functions.help.actions -tearoff 0
 .abc.functions.help.actions add command -label "MPC-BE" -font $df -command {openUrl https://sourceforge.net/projects/mpcbe/}
 .abc.functions.help.actions add command -label "Notation player 5" -font $df -command {openUrl https://www.notation.com/Player.php}
 .abc.functions.help.actions add command -label "TiMidity++" -font $df -command {openUrl https://timidity.sourceforge.net/}
+.abc.functions.help.actions add command -label "Musescore" -font $df -command {openUrl https://musescore.org/en/download}
+.abc.functions.help.actions add command -label "Ghostscript" -font $df -command {openUrl https://ghostscript.com/releases/gsdnld.html}
+.abc.functions.help.actions add command -label "xml2abc" -font $df -command {openUrl https://wim.vree.org/svgParse/xml2abc.html}
+
 
 
 tooltip::tooltip .abc.functions.toc  "TOC"
@@ -2027,6 +2030,14 @@ proc abcmidi_no_such_error {exefile} {
     show_error_message $msg
 }
 
+proc abcm2ps_no_such_error {exefile} {
+    set tail [file tail $exefile]
+    set msg "Runabc could not find the executable $tail. If the file \
+            is already on your system, then you need to indicate the path to the\
+            package by going to the 'Options/ABC executables' menu item (see wrench\
+            icon)."
+    show_error_message $msg
+}
 
 
 #####  Functions to Play, Display, Edit #####
@@ -2362,6 +2373,9 @@ proc display_tunes {abcfile  {nodisplay 0}} {
         
         catch {eval $cmd} exec_out
         set exec_abcm2ps "$cmd\n\n$exec_out"
+        if {[string first "no such" $exec_out] >= 0} {
+            abcm2ps_no_such_error $midi(path_abcm2ps)
+            return}
 
         if {$midi(m2ps_output) == "svg" } {
             set cmd "exec [list $midi(path_internet)] file://[list [pwd]/Out001.svg] &"
@@ -6633,7 +6647,7 @@ proc remove_cfg_page {} {
     global cfg_subsection
     
     switch -- $cfg_subsection {
-        1 { set w_list {26 1 20 2 21 24 3 25 4 10 23 29 22 12 30} }
+        1 { set w_list { 45 26 28 1 20 4 30 10 29 46 22 44 11 12 23 } }
         2 { set w_list {5 6 13 7 8 14 36 37 38 40 41 42 19 39} }
         4 { set w_list {9 18 15 16 17 27} }
         5 { set w_list {30} }
@@ -11246,10 +11260,10 @@ set hlp_grouper \
 bind . <Alt-s> {runabc_diagnostic}
 bind . <Alt-S> {runabc_diagnostic}
 
-set abcmidilist {path_abc2midi 4.94\
+set abcmidilist {path_abc2midi 5.03\
             path_abc2abc 2.22\
             path_yaps 1.94\
-            path_midi2abc 3.60\
+            path_midi2abc 3.64\
             path_midicopy 1.40\
             path_midistats 1.04\
             path_abcmatch 1.83\
@@ -27777,7 +27791,7 @@ if {![file exist [list $midi(path_ABCarus)]]} {
    tk_messageBox -type ok -message "Could not find ABCarus; you need to install it on your system and update the Options/ABC executables. See the instructions on the web site for more details."
    return
    } 
-set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input $infile &"
+set cmd "exec [list $midi(path_ABCarus)] --disable-gpu -input [list $infile] &"
 catch {eval $cmd} result
 append exec_out \n$cmd\n$result
 }
@@ -28071,7 +28085,7 @@ append exec_out \n$exec_output
 }
 
 proc run_abctranscription_tools_for {infile} {
-   set inhandle [open [list $infile]]
+   set inhandle [open $infile]
    set abcdata [read $inhandle]
    close $inhandle 
    run_abctranscription_tools $abcdata
@@ -28132,8 +28146,12 @@ set sel [title_selected]
 scan $sel "I%x" skip
 incr skip -1
 if {![file exist $midi(path_abc2xml)]} {
-   tk_messageBox  -message "cannot find $midi(path_abc2xml)" -type ok
+   tk_messageBox  -message "invalid path to abc2xml.py = $midi(path_abc2xml)" -type ok
    return
+  }
+if {![file isdirectory $midi(to_xml_folder)]} {
+  .abc.abc2xml.msg  config  -text "First specify the folder to put the output xml file"
+  return
   }
 if {[string range $midi(path_abc2xml) end-1 end] == "py"} {
    set cmd "exec $midi(Python) $midi(path_abc2xml) -m $skip 1 -o "
@@ -28147,6 +28165,8 @@ if {$midi(xmlr)} {append cmd " -r "}
 if {$midi(xmlf)} {append cmd " -f "}
 if {$midi(xmlz)} {append cmd " -z r "}
 if {$midi(xmlt)} {append cmd " -t "}
+
+if {[string length $midi(xml_aparam)] > 1} {append cmd " $midi(xml_aparam) "}
 append cmd $midi(abc_open)
 
 catch {eval $cmd} exec_output
@@ -28219,6 +28239,15 @@ global midi
 global runabcpath
 global exec_out
 global active_sheet
+if {![file exist $midi(path_abc2xml)]} {
+   tk_messageBox  -message "invalid path to xml2abc.py = $midi(path_xml2abc)" -type ok
+   return
+  }
+if {![file isdirectory $midi(to_abc_folder)]} {
+  .abc.xml2abc.msg  config  -text "First specify the folder to put the output abc file"
+  return
+  }
+   
 set inputfile "$midi(xml_library)/[selected_xml]"
 
 set filedir [file dirname $midi(abc_open)]
@@ -28229,7 +28258,7 @@ set newfile "$midi(to_abc_folder)/[file tail $inputfile]"
 set newfile "[file rootname $newfile].abc"
 #puts "newfile = $newfile"
 if {![file exist $midi(path_xml2abc)]} {
-   tk_messageBox -message "cannot find $midi(path_xml2abc)" -type ok
+   tk_messageBox -message "cannot find abc2xml.py on $midi(path_xml2abc)" -type ok
    return
    }
 if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
@@ -28239,7 +28268,7 @@ if {[string range $midi(path_xml2abc) end-1 end] == "py"} {
   }
 if {$midi(xmlb) > 0} {append cmd " -b $midi(xmlb) "}
 if {$midi(xmlm) > 0} {append cmd " -m $midi(xmlm) "}
-#puts "cmd = $cmd"
+if {[string length $midi(xml_xparam)] > 0} {append cmd " $midi(xml_xparam) "}
 append cmd [list $inputfile]
 
 set exec_out "$cmd\n"
@@ -28275,6 +28304,7 @@ if {[string range $url end-1 end] == "py"} {
 set cmd "exec [list $midi(path_internet)] $url &"
 eval $cmd
 }
+
 
 proc make_xml_frames {} {
 global df
@@ -28327,8 +28357,14 @@ radiobutton $xml.6 -text 6 -variable midi(xmlb) -value 6 -font $df
 radiobutton $xml.7 -text 7 -variable midi(xmlb) -value 7 -font $df
 radiobutton $xml.8 -text 8 -variable midi(xmlb) -value 8 -font $df
 pack $xml.l $xml.0 $xml.1 $xml.2 $xml.3 $xml.4 $xml.5 $xml.6 $xml.7 $xml.8 -side left
-
 pack $xml
+
+set xml .abc.xml2abc.e
+frame $xml
+pack $xml
+label $xml.l -text "other parameters" -font $df
+entry $xml.e -width 40 -font $df -textvariable midi(xml_xparam)
+pack $xml.l $xml.e -side left
 
 pack .abc.xml2abc.go
 label .abc.xml2abc.msg -text "" -font $df
@@ -28364,6 +28400,13 @@ checkbutton .abc.abc2xml.3 -text "compressed mode - mxl" -font $df -variable mid
 pack .abc.abc2xml.3 -anchor w
 checkbutton .abc.abc2xml.4 -text "derive filename from first T: field " -font $df -variable midi(xmlt)
 pack .abc.abc2xml.4 -anchor w
+
+frame .abc.abc2xml.e
+pack .abc.abc2xml.e -anchor w
+label .abc.abc2xml.e.l -text "other parameters" -font $df
+entry .abc.abc2xml.e.e -width 40 -font $df -textvariable midi(xml_aparam)
+pack  .abc.abc2xml.e.l .abc.abc2xml.e.e -side left
+
 button .abc.abc2xml.go -text go -font $df -command run_abc2xml
 pack .abc.abc2xml.go -anchor w
 
@@ -28400,6 +28443,7 @@ scrollbar $x.list.xsbar -orient horizontal -command {.xmllibrary.list.box xview}
 pack $x.list.xsbar -side bottom  -fill x -side bottom
 pack $x.list.ysbar -side right   -fill y 
 pack $x.list.box -side left -expand 1 -fill both
+update
 #set midi(xml_library) "/home/seymour/library-master/scores"
 load_xml_library
 .xmllibrary.top.mscore configure -command {muscore $midi(xml_library)/[selected_xml]}
@@ -28410,10 +28454,10 @@ global midi
 global df
 set folder $midi(xml_library)
 set stringlength [string length $folder]
-incr stringlength
-set collection [glob -directory $folder *.mxl *.xml]
+if {$stringlength < 1} return
+set collection [glob -nocomplain -directory $folder *.mxl *.xml]
 .xmllibrary.list.box delete 0 end
-foreach item $collection {
+foreach item [lsort $collection] {
   set clippedItem [string range $item $stringlength end]
   .xmllibrary.list.box  insert end $clippedItem
   }
