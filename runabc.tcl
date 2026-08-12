@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.399
-set runabc_date "(July 26 2026 08:04)"
+set runabc_version 2.401
+set runabc_date "(August 12 2026 10:38)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -106,6 +106,7 @@ if {[catch {package require Ttk} error]} {
 # Part 50.0               Links to other abc interfaces
 # Part 51.0               Interface to Michael Eskin's abctools
 # Part 52.0               abc2xml and musecore
+# Part 53.0               pdmx interface
 
 
 
@@ -751,6 +752,7 @@ proc midi_init {} {
         set midi(path_muscore) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
 	set midi(path_gs) "C:/Program Files/gs/gs10.07.1/bin/gswin64.exe"
         set midi(path_editor) "C:/Windows/notepad.exe"
+        set midi(path_pdmx) ""
         set midi(path_midiplayer_1) "C:/Program Files/Windows Media Player/wmplayer.exe"
         set midi(path_midiplayer_2) "C:/Program Files/Notation_5/Player_5/Player.exe"
         set midi(path_midiplayer_3) "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"
@@ -773,6 +775,7 @@ proc midi_init {} {
         set midi(path_ABCarus) ""
         set midi(path_abc2xml) ""
         set midi(path_xml2abc) ""
+        set midi(path_pdmx) ""
         set midi(path_muscore) /usr/bin/mscore
         set midi(path_midiplayer_1) timidity
         set midi(path_midiplayer_2) ""
@@ -784,6 +787,7 @@ proc midi_init {} {
         set midi(midiplayer_4_options) ""
         set midi(path_internet) firefox
         set midi(path_gs) gs
+        set midi(Python) python3
     }
 
     # abc2svg settings
@@ -1117,6 +1121,12 @@ proc midi_init {} {
     set midi(xml_library)  ""
     set midi(to_abc_folder) ""
     set midi(to_xml_folder) ""
+
+    set midi(pdmx_t) 1
+    set midi(pdmx_s) 0
+    set midi(pdmx_so) 0
+    set midi(pdmx_a) 0
+    set midi(pdmx_c) 0
 }
 
 # save all options, current abc file
@@ -1600,7 +1610,7 @@ $w.type.copy add command -label "Append" -font $df \
 $w.type.copy add command -label "Append and renumber" -font $df \
         -command {start_copy_selected_files a 1}
 $w.type.copy add command -label "Merge abc files" -font $df \
-        -command {merge_abc_files}
+        -command {merge_abc_files ""}
 $w.type.copy add command -label "Combine parts" -font $df \
         -command {combine_parts}
 $w.type.copy add command -label Help -font $df \
@@ -1811,6 +1821,8 @@ menu .abc.functions.xml.actions -tearoff 0
         -command {startup_abc2xml} -font $df
 .abc.functions.xml.actions add command -label "xml library"\
         -command {open_xml_library} -font $df
+.abc.functions.xml.actions add command -label "pdmx library"\
+        -command {pdmx_interface} -font $df
 
 menubutton .abc.functions.help -image help-22 -text help -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.help.actions
 menu .abc.functions.help.actions -tearoff 0
@@ -3619,11 +3631,13 @@ proc edit_empty_file {} {
 }
 
 
-proc merge_abc_files {} {
+proc merge_abc_files {folder} {
     global midi exec_out
-    set folder [tk_chooseDirectory -title "Choose the directory containing the abc files"]
-    if {[llength $folder] < 1} return
     puts $folder
+    if {$folder == ""} {
+    set folder [tk_chooseDirectory -title "Choose the directory containing the abc files"]
+       if {[llength $folder] < 1} return
+    }
     
     set collection [glob -directory $folder *.abc *.ABC]
     set exec_out  "[llength $collection] files were found"
@@ -28474,6 +28488,153 @@ if {$index == ""} {set index 0
 return [.xmllibrary.list.box get $index]
 }
  
+# Part 53.0               pdmx interface
+
+proc pdmx_interface {} {
+global midi
+global df
+set searchstring ""
+set sstate(title) $midi(pdmx_t)
+set sstate(stitle) 0
+set sstate(songname) 0
+set sstate(artistname) 0
+set sstate(composername) 0
+set top .pdmx
+toplevel $top
+frame $top.s
+checkbutton $top.s.title -variable midi(pdmx_t) -text title -font $df
+checkbutton $top.s.stitle -variable midi(pdmx_s) -text subtitle -font $df
+checkbutton $top.s.songname -variable midi(pdmx_so) -text songname -font $df
+checkbutton $top.s.artistname -variable midi(pdmx_a) -text artist -font $df
+checkbutton $top.s.composername -variable midi(pdmx_c) -text composer -font $df
+pack $top.s
+pack $top.s.title $top.s.stitle $top.s.songname $top.s.artistname $top.s.composername -side left
+frame $top.str
+label $top.str.lab -text "search string" -font $df
+entry $top.str.ent -width 24 -textvariable pdmxsearchstring -font $df
+button $top.str.go -text go -command scan_pdmx_csv -font $df
+label $top.str.num -text "" -font $df
+pack $top.str
+pack $top.str.lab $top.str.ent $top.str.go $top.str.num -side left 
+frame $top.lb
+listbox $top.lb.list -width 50 \
+      -yscrollcommand {.pdmx.lb.ysbar set} -font $df
+scrollbar $top.lb.ysbar -orient vertical -command {.pdmx.lb.list yview}
+pack $top.lb
+pack $top.lb.ysbar -side right -fill y -in $top.lb
+pack $top.lb.list -fill both -expand y -in $top.lb
+bind $top.lb.list <<ListboxSelect>> show_pdmx_data
+
+frame $top.tw
+text  $top.tw.t -height 8 -width 50 -font $df
+pack $top.tw
+pack $top.tw.t
+
+frame $top.action
+button $top.action.abc -text "make abc file" -command pdmx2abc -font $df
+pack $top.action
+pack $top.action.abc -side left
+}
+
+
+
+proc scan_pdmx_csv {} {
+global pdmxsearchstring
+global matchinglines
+global pdmxlocation
+global midi
+global df
+array set pdmxlocation {mxl 2 israted 10 rating 20 genre 24 songname 27\
+                       title 28 subtitle 29 artistname 30 composername 31\
+                       complexity 33 ntrack 35 songlength_bars 39\
+                       notes_per_bar 41 has_annotation 43 has_lyrics 45
+                       pitch_class_entropy 47 scale_consistency 48
+                       } 
+
+set searchlist {}
+if {$midi(pdmx_t)} {lappend searchlist title}
+if {$midi(pdmx_s)} {lappend searchlist subtitle}
+if {$midi(pdmx_so)} {lappend searchlist songname}
+if {$midi(pdmx_a)} {lappend searchlist artistname}
+if {$midi(pdmx_c)} {lappend searchlist composername}
+
+.pdmx.lb.list delete 0 end
+
+set i 0
+set matchinglines [list]
+if {![file exists $midi(path_pdmx)/PDMX.csv]} {
+     set midi(path_pdmx) [tk_chooseDirectory]
+     }
+set inhandle [open $midi(path_pdmx)/PDMX.csv r]
+
+set line ""
+while {![eof $inhandle]} {
+  gets $inhandle line
+  set csvlist [split $line ,]
+  foreach searchitem $searchlist {
+      if {[string first [string tolower $pdmxsearchstring] [string tolower [lindex $csvlist $pdmxlocation($searchitem)]] ] >= 0} {
+       .pdmx.lb.list insert end [lindex $csvlist $pdmxlocation($searchitem)]
+       lappend matchinglines $line
+       incr i
+       break
+       }
+    }
+  }
+.pdmx.str.num configure -text $i
+}
+
+proc show_pdmx_data {} {
+global matchinglines
+global pdmxlocation
+set sel [.pdmx.lb.list curselection ]
+set csvlist [split [lindex $matchinglines $sel] ,]
+#foreach name [array names pdmxlocation] {
+#  puts "$name [lindex $csvlist $pdmxlocation($name)]"
+#  }
+
+.pdmx.tw.t delete 1.0 end
+foreach result {title subtitle songname artistname composername} {
+  set note [lindex $csvlist $pdmxlocation($result)]
+  if {$note != "NA"} {.pdmx.tw.t insert end "$note\n"}
+  }
+}
+
+proc pdmx2abc {} {
+global matchinglines
+global midi
+global runabcpath
+set i 0
+set filedir [file dirname $midi(abc_default_file)]
+set types {{{abc files} {*.abc}}}
+set filename [tk_getSaveFile -initialdir $filedir \
+          -filetypes $types -title "the file where all the abc tunes are saved"]
+    if {[string length $filename] == 0} return
+set outhandle [open $filename  w]
+foreach line $matchinglines {
+   set csvlist [split $line ,]
+   set xmladdress [lindex $csvlist 2]
+   #puts $xmladdress
+   file copy -force  $midi(path_pdmx)/$xmladdress temp.mxl
+   set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -m 1 -o $runabcpath  temp.mxl "
+   catch {eval $cmd} result
+   #puts $result
+   incr i
+   #if {$i > 3} break
+   set inhandle [open $runabcpath/temp.abc r]
+   while {![eof $inhandle]} {
+     gets $inhandle line
+     if {[string first X: $line] == 0} {
+       puts $outhandle "X: $i" } else {
+       puts $outhandle $line
+       }
+     }
+   close $inhandle
+   }
+close $outhandle
+}
+
+
+
 # main program starts here
 
 
