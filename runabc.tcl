@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.401
-set runabc_date "(August 12 2026 10:38)"
+set runabc_version 2.403
+set runabc_date "(August 14 2026 14:15)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -28229,6 +28229,7 @@ proc muscore {myfile} {
 global midi
 global exec_out
 set cmd "exec [list $midi(path_muscore)] [list $myfile] &"
+puts "cmd = $cmd"
 tk busy hold .
 update
 catch {eval $cmd} exec_output
@@ -28517,7 +28518,7 @@ label $top.str.num -text "" -font $df
 pack $top.str
 pack $top.str.lab $top.str.ent $top.str.go $top.str.num -side left 
 frame $top.lb
-listbox $top.lb.list -width 50 \
+listbox $top.lb.list -width 50 -selectmode extended\
       -yscrollcommand {.pdmx.lb.ysbar set} -font $df
 scrollbar $top.lb.ysbar -orient vertical -command {.pdmx.lb.list yview}
 pack $top.lb
@@ -28531,9 +28532,28 @@ pack $top.tw
 pack $top.tw.t
 
 frame $top.action
+button $top.action.mscore -text "to mscore" -font $df -command {
+   set xml $midi(path_pdmx)[pdmx_selected_xml]
+   muscore $xml
+   }
 button $top.action.abc -text "make abc file" -command pdmx2abc -font $df
+label $top.action.msg -text "" -font $df
 pack $top.action
-pack $top.action.abc -side left
+pack $top.action.mscore $top.action.abc $top.action.msg -side left
+
+set hlp_pdmx "You require a folder containing the file PDMX.csv\
+and a folder called mxl containing a library of mxl files.\
+If you do not have these files, you can download them from\
+https://zenodo.org/records/15571083 .You only need to download\
+PDMX.csv and mxl.tar.gz. You will need to unpack mxl.tar.gz.\
+This folder will occupy 2.0 Gbytes on your computer.\
+Once you have such a folder (eg pdmx), you need to tell runabc where to\
+find it using the Choose Directory function here."
+
+if {![file exists $midi(path_pdmx)/PDMX.csv]} {
+     show_message_page $hlp_pdmx word
+     set midi(path_pdmx) [tk_chooseDirectory]
+     }
 }
 
 
@@ -28544,6 +28564,7 @@ global matchinglines
 global pdmxlocation
 global midi
 global df
+.pdmx.action.msg configure -text "" -font $df
 array set pdmxlocation {mxl 2 israted 10 rating 20 genre 24 songname 27\
                        title 28 subtitle 29 artistname 30 composername 31\
                        complexity 33 ntrack 35 songlength_bars 39\
@@ -28587,35 +28608,37 @@ proc show_pdmx_data {} {
 global matchinglines
 global pdmxlocation
 set sel [.pdmx.lb.list curselection ]
+if {$sel == ""} return
 set csvlist [split [lindex $matchinglines $sel] ,]
-#foreach name [array names pdmxlocation] {
-#  puts "$name [lindex $csvlist $pdmxlocation($name)]"
-#  }
 
 .pdmx.tw.t delete 1.0 end
-foreach result {title subtitle songname artistname composername} {
+foreach result {title subtitle songname artistname composername genre has_lyrics} {
   set note [lindex $csvlist $pdmxlocation($result)]
-  if {$note != "NA"} {.pdmx.tw.t insert end "$note\n"}
+  if {$note != "NA"} {.pdmx.tw.t insert end "$result = $note\n"}
   }
 }
 
 proc pdmx2abc {} {
 global matchinglines
 global midi
+global df
 global runabcpath
+global active_sheet
+update
 set i 0
 set filedir [file dirname $midi(abc_default_file)]
 set types {{{abc files} {*.abc}}}
 set filename [tk_getSaveFile -initialdir $filedir \
           -filetypes $types -title "the file where all the abc tunes are saved"]
-    if {[string length $filename] == 0} return
+if {[string length $filename] == 0} return
+.pdmx.action.msg configure -text working -font $df
 set outhandle [open $filename  w]
 foreach line $matchinglines {
    set csvlist [split $line ,]
    set xmladdress [lindex $csvlist 2]
    #puts $xmladdress
    file copy -force  $midi(path_pdmx)/$xmladdress temp.mxl
-   set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -m 1 -o $runabcpath  temp.mxl "
+   set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -n 4 -x -m 1 -o $runabcpath  temp.mxl "
    catch {eval $cmd} result
    #puts $result
    incr i
@@ -28631,8 +28654,28 @@ foreach line $matchinglines {
    close $inhandle
    }
 close $outhandle
+set midi(abc_open) $filename
+load_whole_file $midi(abc_open)
+title_index $midi(abc_open)
+if {$active_sheet != "titles"} {show_titles_page}
+.pdmx.action.msg configure -text done -font $df
 }
 
+proc pdmx_selected_xml {} {
+global matchinglines
+set sel [.pdmx.lb.list curselection ]
+puts "pdmx sel = $sel"
+if {$sel == "" || [llength $sel] > 1} {set index 0
+                 tk_messageBox -message "select only one file" -type ok
+                 return
+                 }
+set line [lindex $matchinglines $sel]
+set csvlist [split $line ,]
+set xmladdress [lindex $csvlist 2]
+#remove preceeding .
+set xmladdress [string range $xmladdress 1 end]
+return $xmladdress 
+}
 
 
 # main program starts here
