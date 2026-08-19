@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.403
-set runabc_date "(August 14 2026 14:15)"
+set runabc_version 2.406
+set runabc_date "(August 19 2026 17:42)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -700,7 +700,8 @@ proc check_file {execname} {
 
 
 proc check_python {} {
-set cmd "exec python3 --version"
+global midi
+set cmd "exec $midi(Python) --version"
 catch {eval $cmd} result
 return $result
 }
@@ -1127,6 +1128,8 @@ proc midi_init {} {
     set midi(pdmx_so) 0
     set midi(pdmx_a) 0
     set midi(pdmx_c) 0
+    set midi(pdmx_genre) 4
+    set midi(pdmx_maxtunes) 150
 }
 
 # save all options, current abc file
@@ -1821,7 +1824,7 @@ menu .abc.functions.xml.actions -tearoff 0
         -command {startup_abc2xml} -font $df
 .abc.functions.xml.actions add command -label "xml library"\
         -command {open_xml_library} -font $df
-.abc.functions.xml.actions add command -label "pdmx library"\
+.abc.functions.xml.actions add command -label "pdmx extractor"\
         -command {pdmx_interface} -font $df
 
 menubutton .abc.functions.help -image help-22 -text help -font $df -borderwidth $midi(butborder) -relief $midi(butrelief)  -bg $midi(butbg) -menu .abc.functions.help.actions
@@ -28502,6 +28505,27 @@ set sstate(artistname) 0
 set sstate(composername) 0
 set top .pdmx
 toplevel $top
+frame $top.g
+menubutton $top.g.m -text genres -font $df -menu $top.g.m.type
+tooltip::tooltip $top.g.m   "Select one of the genres"
+menu $top.g.m.type -tearoff 0
+foreach genre {classical folk soundtrack rock pop classical-soundtrack\
+ religiousmusic jazz electronic rock-pop jazz-classical rbfunksoul\
+ pop-rbfunksoul worldmusic hiphop rock-folk classical-experimental\
+ metal classical-folk pop-soundtrack rock-electronic} {
+  $top.g.m.type add radiobutton -label $genre -font $df -variable midi(pdmx_genre) -value $genre
+  }
+button $top.g.rs -text "search genre" -font $df -command scan_pdmx_genre
+tooltip::tooltip $top.g.rs   "search the pdmx database for the
+ chosen genre and record them in
+ the listbox"
+button $top.g.h -text help -font $df
+pack $top.g -anchor w
+pack $top.g.m $top.g.rs $top.g.rs $top.g.h -side left -anchor w
+
+
+
+
 frame $top.s
 checkbutton $top.s.title -variable midi(pdmx_t) -text title -font $df
 checkbutton $top.s.stitle -variable midi(pdmx_s) -text subtitle -font $df
@@ -28536,10 +28560,36 @@ button $top.action.mscore -text "to mscore" -font $df -command {
    set xml $midi(path_pdmx)[pdmx_selected_xml]
    muscore $xml
    }
+tooltip::tooltip $top.action.mscore   "export the selected xml file
+to the mscore application"
+button $top.action.youtube -text "to youtube" -font $df -command {
+   set title [pdmx_selected_title]
+   youtube_search $title
+   }
+tooltip::tooltip $top.action.youtube   "export the selected xml title
+to the youtube site" 
 button $top.action.abc -text "make abc file" -command pdmx2abc -font $df
-label $top.action.msg -text "" -font $df
+tooltip::tooltip $top.action.abc "convert all the xml files or a
+random subset of the xml files
+in the listbox to one abc file."
+
 pack $top.action
-pack $top.action.mscore $top.action.abc $top.action.msg -side left
+pack $top.action.mscore $top.action.youtube $top.action.abc -side left
+frame $top.msg 
+label $top.msg.lab -text "" -font $df
+pack $top.msg
+pack $top.msg.lab -side left
+
+set hlp_no_python "You need to install Python (preferably 3 or greater)\
+ on your system and set the Python variable in the Options/ABC executables\
+ to python3. You can find the python download on https://www.python.org/downloads/
+ "
+
+set pythoncheck [check_python]
+if {[string length $pythoncheck] > 16} {
+ puts $pythoncheck
+ show_message_page $hlp_no_python word
+ }
 
 set hlp_pdmx "You require a folder containing the file PDMX.csv\
 and a folder called mxl containing a library of mxl files.\
@@ -28564,7 +28614,7 @@ global matchinglines
 global pdmxlocation
 global midi
 global df
-.pdmx.action.msg configure -text "" -font $df
+.pdmx.msg.lab configure -text "" -font $df
 array set pdmxlocation {mxl 2 israted 10 rating 20 genre 24 songname 27\
                        title 28 subtitle 29 artistname 30 composername 31\
                        complexity 33 ntrack 35 songlength_bars 39\
@@ -28604,6 +28654,46 @@ while {![eof $inhandle]} {
 .pdmx.str.num configure -text $i
 }
 
+proc scan_pdmx_genre {} {
+global pdmxsearchstring
+global matchinglines
+global pdmxlocation
+global midi
+global df
+.pdmx.msg.lab configure -text "" -font $df
+array set pdmxlocation {mxl 2 israted 10 rating 20 genre 24 songname 27\
+                       title 28 subtitle 29 artistname 30 composername 31\
+                       complexity 33 ntrack 35 songlength_bars 39\
+                       notes_per_bar 41 has_annotation 43 has_lyrics 45
+                       pitch_class_entropy 47 scale_consistency 48
+                       } 
+
+set searchlist {}
+set genreValue $midi(pdmx_genre)
+
+.pdmx.lb.list delete 0 end
+
+set i 0
+set matchinglines [list]
+if {![file exists $midi(path_pdmx)/PDMX.csv]} {
+     set midi(path_pdmx) [tk_chooseDirectory]
+     }
+
+set inhandle [open $midi(path_pdmx)/PDMX.csv r]
+
+set line ""
+while {![eof $inhandle]} {
+  gets $inhandle line
+  set csvlist [split $line ,]
+  if {[string first $genreValue [string tolower [lindex $csvlist 24]] ] >= 0} {
+       .pdmx.lb.list insert end [lindex $csvlist 28]
+       lappend matchinglines $line
+       incr i
+       }
+    }
+.pdmx.str.num configure -text $i
+}
+
 proc show_pdmx_data {} {
 global matchinglines
 global pdmxlocation
@@ -28631,40 +28721,72 @@ set types {{{abc files} {*.abc}}}
 set filename [tk_getSaveFile -initialdir $filedir \
           -filetypes $types -title "the file where all the abc tunes are saved"]
 if {[string length $filename] == 0} return
-.pdmx.action.msg configure -text working -font $df
+.pdmx.msg.lab configure -text working -font $df
+set nmatchinglines [llength $matchinglines]
+set threshold [expr $midi(pdmx_maxtunes)/double($nmatchinglines)]
+if {$threshold > 1.0} {set threshold 1.0}
+update
 set outhandle [open $filename  w]
 foreach line $matchinglines {
+   if {rand() > $threshold} continue   
    set csvlist [split $line ,]
    set xmladdress [lindex $csvlist 2]
+   set songname [lindex $csvlist 27]
+   set title [lindex $csvlist 28]
    #puts $xmladdress
    file copy -force  $midi(path_pdmx)/$xmladdress temp.mxl
-   set cmd "exec [list $midi(Python) $midi(path_xml2abc)] -n 4 -x -m 1 -o $runabcpath  temp.mxl "
+   set cmd "exec [list $midi(Python) $midi(path_xml2abc)]  -c 4 -n 4 -x -m 1 -o $runabcpath  temp.mxl "
    catch {eval $cmd} result
    #puts $result
    incr i
-   #if {$i > 3} break
+   #if {$i > 20} break
    set inhandle [open $runabcpath/temp.abc r]
    while {![eof $inhandle]} {
      gets $inhandle line
-     if {[string first X: $line] == 0} {
-       puts $outhandle "X: $i" } else {
-       puts $outhandle $line
-       }
-     }
-   close $inhandle
-   }
+     set xtrue [string first X: $line]
+     set ttrue [string first T: $line]
+
+     if  {$xtrue == -1 && $ttrue == -1} {
+        puts $outhandle $line
+        continue
+     } elseif {$xtrue >=0} {
+       puts $outhandle "X: $i" 
+       continue 
+
+     }  elseif {$ttrue >=0} {
+       set titlestring [string range $line 2 end]
+       if {[string length $titlestring] < 8} {
+         if {$songname != "NA"} {
+           puts $outhandle "T: $songname"
+           continue
+         } elseif {$title != "NA"} {
+           puts $outhandle "T: $title"
+           continue
+         } else {
+           puts $outhandle $line
+           continue
+           }
+        }
+        puts $outhandle $line
+        continue
+      } 
+    }    
+  set title [string range $title 0 47]
+  .pdmx.msg.lab configure -text "$i $title"
+  update
+  }
+close $inhandle
 close $outhandle
 set midi(abc_open) $filename
 load_whole_file $midi(abc_open)
 title_index $midi(abc_open)
 if {$active_sheet != "titles"} {show_titles_page}
-.pdmx.action.msg configure -text done -font $df
+.pdmx.msg.lab configure -text "$i random tunes out of $nmatchinglines collected" -font $df
 }
 
 proc pdmx_selected_xml {} {
 global matchinglines
 set sel [.pdmx.lb.list curselection ]
-puts "pdmx sel = $sel"
 if {$sel == "" || [llength $sel] > 1} {set index 0
                  tk_messageBox -message "select only one file" -type ok
                  return
@@ -28677,6 +28799,29 @@ set xmladdress [string range $xmladdress 1 end]
 return $xmladdress 
 }
 
+proc pdmx_selected_title {} {
+global matchinglines
+set sel [.pdmx.lb.list curselection ]
+if {$sel == "" || [llength $sel] > 1} {set index 0
+                 tk_messageBox -message "select only one file" -type ok
+                 return
+                 }
+set line [lindex $matchinglines $sel]
+set csvlist [split $line ,]
+set title [lindex $csvlist 28]
+return $title 
+}
+
+proc youtube_search {title} {
+global midi
+global exec_out
+set title [string map {" " "+"} $title]
+puts "title = $title"
+set s "https://www.youtube.com/results?search_query=$title"
+set cmd "exec [list $midi(path_internet)] [list $s] &"
+catch {eval $cmd} result
+append exec_out $cmd\n$result
+}
 
 # main program starts here
 
