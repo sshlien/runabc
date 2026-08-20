@@ -32,8 +32,8 @@ exec wish8.6 "$0" "$@"
 #      http://ifdo.ca/~seymour/runabc/top.html
 
 
-set runabc_version 2.406
-set runabc_date "(August 19 2026 17:42)"
+set runabc_version 2.407
+set runabc_date "(August 20 2026 13:38)"
 set runabc_title "runabc $runabc_version $runabc_date"
 set tcl_version [info tclversion]
 set startload [clock clicks -milliseconds]
@@ -705,6 +705,17 @@ set cmd "exec $midi(Python) --version"
 catch {eval $cmd} result
 return $result
 }
+
+proc check_xml2abc {} {
+global midi
+set cmd "exec $midi(Python) $midi(path_xml2abc) "
+catch {eval $cmd} result
+if {[string first "Usage:" $result] == 0} {return 1
+    } else {puts $result
+      return $result}
+}
+ 
+
 
 
 # default values for options
@@ -28568,7 +28579,7 @@ button $top.action.youtube -text "to youtube" -font $df -command {
    }
 tooltip::tooltip $top.action.youtube   "export the selected xml title
 to the youtube site" 
-button $top.action.abc -text "make abc file" -command pdmx2abc -font $df
+button $top.action.abc -text "make abc collection" -command pdmx2abc -font $df
 tooltip::tooltip $top.action.abc "convert all the xml files or a
 random subset of the xml files
 in the listbox to one abc file."
@@ -28584,6 +28595,11 @@ set hlp_no_python "You need to install Python (preferably 3 or greater)\
  on your system and set the Python variable in the Options/ABC executables\
  to python3. You can find the python download on https://www.python.org/downloads/
  "
+
+set hlp_no_xml2abc "The python script xml2abc.py was not found.\
+You can get if from https://wim.vree.org/svgParse/xml2abc.html.\
+After unzipping the file set the xml2abc variable in the ABC \
+executables in the Options menu, to the location of this folder."
 
 set pythoncheck [check_python]
 if {[string length $pythoncheck] > 16} {
@@ -28604,6 +28620,10 @@ if {![file exists $midi(path_pdmx)/PDMX.csv]} {
      show_message_page $hlp_pdmx word
      set midi(path_pdmx) [tk_chooseDirectory]
      }
+
+set result [check_xml2abc]
+if {$result == 1} {return 
+  } else {show_message_page $hlp_no_xml2abc word}
 }
 
 
